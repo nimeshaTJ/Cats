@@ -7,6 +7,7 @@
 # Revisions: 
 #
 # 17/Sep/2021 - Can read terrain and landmark data from scv files, and draw them onto pygame display
+# 18/Sep/2021 - Landmaks can now have a quantity (x units of food/water)
 
 import pygame
 import random
@@ -14,8 +15,8 @@ import numpy as np
 import csv
 
 # Colours
-green = (0,255,0)
-blue = (0,0,255)
+green = (50,130,0)
+blue = (0,100,255)
 pink = (255,0,250)
 
 # Defining the perimeter of the environment
@@ -25,28 +26,55 @@ cell_size = 10
 display_width = num_cols*cell_size
 display_height = num_rows*cell_size
 
-# Function that reads in terrain and landmark (food, water, bed) data from a file and returns them as arrays
-def read_data(terrain_filename, landmarks_filename):
-	terrain_array = np.zeros((num_rows,num_cols))
-	landmarks_array = np.full((num_rows,num_cols)," ")
-	terrain_file = open(terrain_filename,'r')
-	landmarks_file = open(landmarks_filename,'r')
-	terrain_list = list(csv.reader(terrain_file))
-	landmarks_list = list(csv.reader(landmarks_file))
+# Function that reads in terrain data from a file and returns it as an array
+def read_terrain(terrain_filename):
+	terrain_array = np.zeros((num_rows,num_cols)) 
+	with open(terrain_filename,'r') as terrain_file:
+		terrain_list = list(csv.reader(terrain_file))
 	for r in range(num_rows):
 		for c in range(num_cols):
 			try:
 				terrain_array[r,c] = int(terrain_list[r][c])
 			except IndexError:
 				pass
-			try:
-				landmarks_array[r,c] = landmarks_list[r][c]
-			except IndexError:
-				pass
-	terrain_file.close()
-	landmarks_file.close()
-	return terrain_array, landmarks_array
+	return terrain_array
 
+# Processes the landmark list by converting strings into tuples of the form (landmark_type , quantity)
+def process(raw_list):
+	landmark_list = []
+	for row in raw_list:
+		processed_row = []
+		for value in row:
+			processed_value = None
+			if value!= "":
+				processed_value = (value.split(" ")[0], int(value.split(" ")[1]))
+			processed_row.append(processed_value)
+		landmark_list.append(processed_row)	
+	return landmark_list
+
+# Function that reads in food and water data from a file and returns them as arrays
+def read_landmarks(landmark_filename):
+	food_array = np.zeros((num_rows,num_cols))
+	water_array = np.zeros((num_rows,num_cols)) 
+	with open(landmark_filename,'r') as landmark_file:
+		raw_list = list(csv.reader(landmark_file))
+	landmark_list = process(raw_list)
+			
+	for r in range(len(landmark_list)):
+		for c in range(len(landmark_list[0])):
+			value = landmark_list[r][c]
+			if value != None:
+				landmark_type = value[0]
+				quantity = value[1]
+				try:
+					if landmark_type == "F":
+						food_array[r,c] = quantity
+					else:
+						water_array[r,c] = quantity
+				except IndexError:
+ 					pass
+	return food_array, water_array
+			
 # Function that takes a height value from 0 to 10, and returns the colour of the terrain at that height (dark brown to light brown)
 def assign_terrain_colour(height):
 	R = 13.5*height + 120
@@ -55,17 +83,13 @@ def assign_terrain_colour(height):
 	return((R,G,B))
 
 # Function that draws and displays the current state of the environment (terrain, landmarks, and cats)
-def draw_screen(terrain_array,landmarks_array):
+def draw_screen(terrain_array,food_array, water_array):
 	for r in range(num_rows):
 		for c in range(num_cols):
 			terrain_colour = assign_terrain_colour(terrain_array[r,c])	
 			pygame.draw.rect(gameDisplay, terrain_colour,[c*cell_size,r*cell_size,cell_size,cell_size])
-			if landmarks_array[r,c] == "F":
-				pygame.draw.circle(gameDisplay,green,((c+0.5)*cell_size,(r+0.5)*cell_size),cell_size/2)
-			if landmarks_array[r,c] == "W":
-				pygame.draw.circle(gameDisplay,blue,((c+0.5)*cell_size,(r+0.5)*cell_size),cell_size/2)	
-			if landmarks_array[r,c] == "B":
-				pygame.draw.circle(gameDisplay,pink,((c+0.5)*cell_size,(r+0.5)*cell_size),cell_size/2)
+			pygame.draw.circle(gameDisplay,green,((c+0.5)*cell_size,(r+0.5)*cell_size),food_array[r,c]*cell_size/10)
+			pygame.draw.circle(gameDisplay,blue,((c+0.5)*cell_size,(r+0.5)*cell_size),water_array[r,c]*cell_size/10)
 
 
 gameDisplay = pygame.display.set_mode((display_width,display_height))
@@ -83,8 +107,9 @@ if __name__ == "__main__":
 			if event.type == pygame.QUIT:
 				crashed = True
 		
-		terrain_array, landmarks_array = read_data("terrain.csv","landmarks.csv")
-		draw_screen(terrain_array,landmarks_array)
+		terrain_array = read_terrain("terrain.csv")
+		food_array, water_array = read_landmarks("landmarks.csv")
+		draw_screen(terrain_array,food_array, water_array)
 		pygame.display.update()
 		clock.tick(framerate)		
 
