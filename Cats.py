@@ -145,35 +145,6 @@ def process(raw_list):
 
 # Calculates a valid move for each cat and moves it there
 def get_valid_moves(cat,terrain_array,food_array,water_array,neighbourhood,cats):
-	# moves = [-1,0,1]
-	# next_pos = [cat.pos[0],cat.pos[1]]
-	# cant_move_there = True																
-	# while cant_move_there:
-	# 	cant_move_there = False
-	# 	if neighbourhood == "M":														# Movement within a Moore neighbourhood
-	# 		next_pos[0]+=random.choice(moves)
-	# 		next_pos[1]+=random.choice(moves)
-	# 	else:																			# Movement within a von Neumann neighbourhood
-	# 		axis = random.choice(['x','y'])
-	# 		if axis == 'y':  
-	# 			next_pos[0] += random.choice(moves)
-	# 		else:
-	# 			next_pos[1] += random.choice(moves)
-	
-	# 	if next_pos[0]<1 or next_pos[0]>num_rows or next_pos[1]<1 or next_pos[1]>num_cols:					# Cats can't leave borders
-	# 		cant_move_there = True
-	# 		next_pos = [cat.pos[0],cat.pos[1]]
-	# 	elif abs(terrain_array[next_pos[0],next_pos[1]] - terrain_array[cat.pos[0],cat.pos[1]]) > 4:		# Cats can't move across steep slopes
-	# 		cant_move_there = True
-	# 		next_pos = [cat.pos[0],cat.pos[1]]
-	# 	elif (food_array[next_pos[0],next_pos[1]] > 0) or (water_array[next_pos[0],next_pos[1]] > 0):		# Cats can't walk on food or water
-	# 		cant_move_there = True
-	# 		next_pos = [cat.pos[0],cat.pos[1]]
-	# 	else:
-	# 		for other_cat in cats:
-	# 			if other_cat != cat and other_cat.pos == next_pos:
-	# 				cant_move_there = True
-	# 				next_pos = [cat.pos[0],cat.pos[1]]
 	possible_moves = []
 	r,c = cat.pos[0],cat.pos[1]
 	if neighbourhood=="M":
@@ -196,9 +167,7 @@ def get_valid_moves(cat,terrain_array,food_array,water_array,neighbourhood,cats)
 			
 	return valid_moves
 
-
 def check_surroundings(cat,pos,cats):
-	
 	surrounding_cells = []
 	r,c = pos[0],pos[1]
 	if neighbourhood=="M":
@@ -218,7 +187,6 @@ def check_surroundings(cat,pos,cats):
 	
 	return neighbours, neighbouring_food, neighbouring_water
 	
-
 # Function that decides whether to eat or drink given landmarks in its neighbourhood
 def eat_or_drink(cat,neighbouring_food,neighbouring_water,food_array,water_array):
 	if len(neighbouring_water)==0:													# If there's only food in its neighbourhood
@@ -330,7 +298,6 @@ def main_loop(cats,terrain_array,food_array,water_array,neighbourhood):
 	
 	hunger_and_thirst(cats)
 	
-
 if __name__ == "__main__":
 
 	# terrain_filename = input("\nPlease enter a terrain data file:    ")
