@@ -27,3 +27,5 @@ csv
 18/Sep/2021 - Created Cat class, movement rules and Moore/von Neumann neighbour detection
 
 19/Sep/2021 - Cats have hunger and thirst, and can eat food and drink water. Cats can also detect whether other cats are nearby.
+
+20/Sep/2021 - Implemented engagement rules for cats; restructured sections of code and improved movement system.
