@@ -29,3 +29,5 @@ csv
 19/Sep/2021 - Cats have hunger and thirst, and can eat food and drink water. Cats can also detect whether other cats are nearby.
 
 20/Sep/2021 - Implemented engagement rules for cats; restructured sections of code and improved movement system.
+
+23/Sep/2021 - Added time of day and sleeping mechanic for cats.
