@@ -31,3 +31,5 @@ csv
 20/Sep/2021 - Implemented engagement rules for cats; restructured sections of code and improved movement system.
 
 23/Sep/2021 - Added time of day and sleeping mechanic for cats.
+
+25/Sep/2021 - Cats leave a scent when passing through a cell.

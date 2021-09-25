@@ -11,7 +11,8 @@
 # 18/Sep/2021 - Created Cat class, movement rules and Moore/von Neumann neighbour detection.
 # 19/Sep/2021 - Cats have hunger and thirst, and can eat food and drink water. Cats can also detect whether other cats are nearby.
 # 20/Sep/2021 - Implemented engagement rules for cats; restructured sections of code and improved movement system.
-# 22/Sep/2021 - Added time of day and sleeping mechanic for cats.
+# 23/Sep/2021 - Added time of day and sleeping mechanic for cats.
+# 25/Sep/2021 - Cats leave a scent when passing through a cell.	
 
 
 import pygame
@@ -37,7 +38,7 @@ num_cols = 50
 cell_size = 10
 display_width = (num_cols+2)*cell_size				# Width of display in pixels
 display_height = (num_rows+2)*cell_size	+30			# Height of display in pixels
-framerate = 2
+framerate = 20
 
 # Cat class
 class Cat():
@@ -120,12 +121,12 @@ class Cat():
 
 	def sleep(self):
 		if self.sleeping:
-			if self.sleep_counter > 8:
+			if self.sleep_counter > 8:			# Cats sleep for 8 hours at a stretch if uninterrupted
 				self.sleep_counter = 0
 				self.sleeping = False
 			else:
 				if self.health <= 95:
-					self.health += 5
+					self.health += 5 			# Cats gain health while sleeping
 				self.sleep_counter+=1
 		else:
 			self.sleep_counter = 0
@@ -180,7 +181,7 @@ def process(raw_list):
 	return landmark_list
 
 # Calculates a valid move for each cat and moves it there
-def get_valid_moves(cat,terrain_array,food_array,water_array,neighbourhood,alive_cats):
+def get_valid_moves(cat,terrain_array,food_array,water_array,scent_array,neighbourhood,alive_cats):
 	possible_moves = []
 	r,c = cat.pos[0],cat.pos[1]
 	if neighbourhood=="M":
@@ -196,9 +197,18 @@ def get_valid_moves(cat,terrain_array,food_array,water_array,neighbourhood,alive
 			valid_moves.remove(cell)
 		elif (food_array[cell[0],cell[1]] > 0) or (water_array[cell[0],cell[1]] > 0):				# Cats can't walk on food or water
 			valid_moves.remove(cell)
+		elif scent_array[cell[0],cell[1]][1]==cat.sex and scent_array[cell[0],cell[1]][0]!=cat:		# Cats avoid scents of the same sex 
+			probability = scent_array[cell[0],cell[1]][2]
+			if random.random()<probability:
+				valid_moves.remove(cell)
+		elif scent_array[cell[0],cell[1]][1]!=cat.sex:												# Cats are attracted to scents of the opposite sex
+			probability = scent_array[cell[0],cell[1]][2]
+			if random.random()<probability and cat.hunger<25 and cat.thirst<25:
+				valid_moves = [cell]
+				break
 		else:
 			for other_cat in alive_cats:
-				if other_cat != cat and other_cat.pos == cell:
+				if other_cat != cat and other_cat.pos == cell:										# Cats can't walk on other catss
 					valid_moves.remove(cell)		
 			
 	return valid_moves
@@ -211,11 +221,16 @@ def check_surroundings(cat,pos,alive_cats):
 	else:
 		surrounding_cells.extend([[r-1,c],[r,c-1],[r,c+1],[r+1,c]])
 	
-	neighbours = [neighbour for neighbour in alive_cats if (neighbour!=cat) and (neighbour.pos in surrounding_cells)]
+	valid_surrounding_cells = [cell for cell in surrounding_cells]
+	for cell in surrounding_cells:
+		if abs(terrain_array[cell[0],cell[1]] - terrain_array[r,c]) > 4:
+			valid_surrounding_cells.remove(cell)
+
+	neighbours = [neighbour for neighbour in alive_cats if (neighbour!=cat) and (neighbour.pos in valid_surrounding_cells)]
 	
 	neighbouring_water = []
 	neighbouring_food = []
-	for cell in surrounding_cells:
+	for cell in valid_surrounding_cells:
 		if water_array[cell[0],cell[1]] > 0:
 			neighbouring_water.append(cell)
 		elif food_array[cell[0],cell[1]] > 0:
@@ -251,7 +266,7 @@ def hunger_and_thirst(alive_cats):
 		cat.starving = False
 		cat.parched = False
 
-def set_colour(alive_cats):
+def cat_colour(alive_cats):
 	for cat in alive_cats:
 		cat.colour = white
 		if cat.fighting:
@@ -260,7 +275,18 @@ def set_colour(alive_cats):
 			cat.colour = yellow
 		elif cat.sleeping:
 			cat.colour = grey
-	
+
+def scent_colour(sex,value):
+	if sex=="f":
+		R = 255
+		G = -230*value + 230
+		B = -20*value + 250
+	else:
+		R = -160*value + 230
+		G = -25*value + 250
+		B = 255
+	return (R,G,B)
+
 def kill_cats(alive_cats,dead_cats):
 	for cat in alive_cats:
 		if cat.health<=0:
@@ -276,7 +302,7 @@ def assign_terrain_colour(height):
 	return((R,G,B))
 
 def show_cats(alive_cats,dead_cats):
-	for cat,i in enumerate(alive_cats):
+	for i,cat in enumerate(alive_cats):
 		print("Cat ",i,": ALIVE")
 		print("pos: ", cat.pos)
 		print("health: ", cat.health)
@@ -286,7 +312,7 @@ def show_cats(alive_cats,dead_cats):
 		print("thirst: ", cat.thirst)
 		print("attack: ", cat.attack_power)
 		print("\n\n")
-	for cat,i in enumerate(dead_cats):
+	for i,cat in enumerate(dead_cats):
 		print("Cat ",i,": DEAD\n\n\n")
 
 # Creating cat objects
@@ -311,7 +337,7 @@ def create_cats():
 		alive_cats.append(cat)
 	return alive_cats
 
-def main_loop(alive_cats,terrain_array,food_array,water_array,neighbourhood,hour_of_day):
+def main_loop(alive_cats,terrain_array,food_array,water_array,scent_array,neighbourhood,hour_of_day):
 	for cat in alive_cats:
 		cat.height = terrain_array[cat.pos[0],cat.pos[1]]
 		cat.engaged = False
@@ -328,22 +354,33 @@ def main_loop(alive_cats,terrain_array,food_array,water_array,neighbourhood,hour
 
 	for cat in alive_cats:
 		initial_sleep_chance = cat.sleep_chance
-		if hour_of_day > 21 or hour_of_day < 5:						# more likely to sleep at night
+		if hour_of_day > 21 or hour_of_day < 5:						# More likely to sleep at night
 			cat.sleep_chance*=5
 		multiplier = -0.02*cat.health + 3 							# The lower the cat's health, the more likely it is to go to sleep
 		cat.sleep_chance*=multiplier
-		if random.random()<cat.sleep_chance and (cat.hunger < 25 and cat.thirst < 25):
+		if random.random()<cat.sleep_chance and (cat.hunger < 25 and cat.thirst < 25):			# Cats only sleep if they are not hungry or thirsty
 			cat.sleeping = True
 		cat.sleep_chance = initial_sleep_chance
 
 	for cat in alive_cats:
 		cat.sleep()
 		if (not cat.engaged) and (not cat.sleeping):
-			valid_moves = get_valid_moves(cat,terrain_array,food_array,water_array,neighbourhood,alive_cats)
+			valid_moves = get_valid_moves(cat,terrain_array,food_array,water_array,scent_array,neighbourhood,alive_cats)
 			cat.pos = random.choice(valid_moves)
 				
-	set_colour(alive_cats)	
+	cat_colour(alive_cats)	
 	hunger_and_thirst(alive_cats)
+
+def update_scents(alive_cats,scent_array):
+	temp_scents = scent_array.copy()
+	for cat in alive_cats:
+		temp_scents[cat.pos[0],cat.pos[1]] = [cat,cat.sex,1]
+	for r in range(num_rows):
+		for c in range(num_cols):
+			temp_scents[r+1,c+1][2]*=0.9
+			if temp_scents[r+1,c+1][2]<0.01:
+				temp_scents[r+1,c+1] = [None,None,0]
+	return temp_scents				
 
 def increment_time(hour, day, hour_of_day):
 	hour+=1
@@ -358,14 +395,17 @@ def draw_screen(terrain_array,food_array, water_array, alive_cats, dead_cats):
 		for col in range(num_cols):
 			r = row+1
 			c = col+1
-			terrain_colour = assign_terrain_colour(terrain_array[r,c])													
+			terrain_colour = assign_terrain_colour(terrain_array[r,c])	
+			scentcolour = scent_colour(scent_array[r,c][1],scent_array[r,c][2])												
 			pygame.draw.rect(gameDisplay, terrain_colour,[c*cell_size,r*cell_size,cell_size,cell_size])					
 			pygame.draw.circle(gameDisplay,green,((c+0.5)*cell_size,(r+0.5)*cell_size),food_array[r,c]*cell_size/10)	# Food are pink circles
 			pygame.draw.circle(gameDisplay,blue,((c+0.5)*cell_size,(r+0.5)*cell_size),water_array[r,c]*cell_size/10)	# Water are blue circles
+			if scent_array[r,c][2]>0:
+				pygame.draw.rect(gameDisplay, scentcolour,[c*cell_size,r*cell_size,cell_size,cell_size])
 	for cat in dead_cats:
 		r = cat.pos[0]
 		c = cat.pos[1]
-		pygame.draw.circle(gameDisplay , black, ((c+0.5)*cell_size,(r+0.5)*cell_size), cell_size*(cat.age/16 + 1/4))
+		pygame.draw.circle(gameDisplay , black, ((c+0.5)*cell_size,(r+0.5)*cell_size), cell_size*(cat.age/16 + 1/4)) 
 	for cat in alive_cats:
 		r = cat.pos[0]
 		c = cat.pos[1]
@@ -383,20 +423,26 @@ if __name__ == "__main__":
 
 	terrain_array = read_terrain(sys.argv[1])
 	food_array, water_array = read_landmarks(sys.argv[2])
-	# terrain_array = read_terrain("terrain.csv")
-	# food_array, water_array = read_landmarks("landmarks.csv")
 	neighbourhood = input("\nPlease enter the desired neighbourhood (M or V):    ")
 	max_hours = int(input("How many hours should be simulated? (enter 0 for indefinite)\n"))
 	alive_cats = create_cats()
 	dead_cats = []
+	scent_array = np.empty((num_rows+2,num_cols+2),dtype = object)
+	for r in range(num_rows+2):
+		for c in range(num_cols+2):
+			scent_array[r,c] = [None,None,0]
+
 	# Initializing pygame
 	pygame.init()
 	gameDisplay = pygame.display.set_mode((display_width,display_height))
 	fontface = pygame.ftfont.SysFont('Courier New',15,bold=True)
 	pygame.display.set_caption("Cats")
 	clock = pygame.time.Clock()
-	crashed = False
+	
 
+	
+
+	crashed = False
 	hour,day,hour_of_day = 0,0,0
 	while not crashed:
 
@@ -408,15 +454,16 @@ if __name__ == "__main__":
 		if (max_hours>0) and (hour==max_hours):														# Quits the simulation after the specified number of iterations
 			crashed = True
 
-		draw_screen(terrain_array,food_array, water_array, alive_cats, dead_cats)					# Updates the pygame display 
+		draw_screen(terrain_array,food_array, water_array, alive_cats, dead_cats)	  		        # Updates the pygame display
 		display_time(hour,day,hour_of_day,fontface,gameDisplay)
 		pygame.display.update()																		# Draws the new frame
-		# show_cats(alive_cats, dead_cats)
-
-		main_loop(alive_cats,terrain_array,food_array,water_array,neighbourhood,hour_of_day)
+		scent_array = update_scents(alive_cats,scent_array)
+		main_loop(alive_cats,terrain_array,food_array,water_array,scent_array,neighbourhood,hour_of_day)
 		alive_cats, dead_cats = kill_cats(alive_cats,dead_cats)
 		clock.tick(framerate)																		# Updates at 2 frames per second
 		hour,day,hour_of_day = increment_time(hour,day,hour_of_day)
 
+
 pygame.quit()
+# show_cats(alive_cats,dead_cats)
 quit()
