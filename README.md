@@ -35,3 +35,5 @@ csv
 25/Sep/2021 - Cats leave a scent when passing through a cell.
 
 26/Sep/2021 - Added reproduction mechanic.
+
+27/Sep/2021 - Cats search for food and water based on scent.
