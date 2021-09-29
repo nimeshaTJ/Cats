@@ -15,9 +15,10 @@
 # 25/Sep/2021 - Cats leave a scent when passing through a cell.
 # 26/Sep/2021 - Added reproduction mechanic.
 # 27/Sep/2021 - Cats search for food and water based on scent.
+# 29/Sep/2021 - Added event log and simulation statistics. 
 
 import pygame
-import pygame.ftfont	
+import pygame.ftfont
 import random
 import numpy as np
 import csv
@@ -40,7 +41,7 @@ num_cols = 50
 cell_size = 10
 display_width = (num_cols+2)*cell_size				# Width of display in pixels
 display_height = (num_rows+2)*cell_size	+30			# Height of display in pixels
-framerate = 10 										# Number of timesteps run per second
+framerate = 2 										# Number of timesteps run per second
 
 # Defining the Cat class
 class Cat():
@@ -49,9 +50,9 @@ class Cat():
 		self.index = index
 		self.pos = pos
 		self.age = age
-		self.temper = temper   									# Can be friendly, aggressive, or meek 
-		self.sex = sex              
-		self.colour = white								
+		self.temper = temper   									# Can be friendly, aggressive, or meek
+		self.sex = sex
+		self.colour = white
 		self.height = terrain_array[self.pos[0],self.pos[1]]
 		self.attack_power = self.age*4    						# Older cats  deal more damage
 		self.sleep_chance = random.uniform(0.01,0.05)
@@ -68,6 +69,8 @@ class Cat():
 		self.hunger = 0
 		self.dehydrated = False									# True when the cat's thirst is maxed out (at 100)
 		self.starving = False									# True when the cat's hunger is maxed put (at 100)
+		self.total_food_eaten = 0
+		self.total_water_drunk = 0	
 
 	def __str__(self):
 		if self.alive:
@@ -88,13 +91,15 @@ class Cat():
 			self.consuming = True
 			food_array[foodpos[0],foodpos[1]]-=0.5
 			self.hunger-=15
+			self.total_food_eaten+=0.5
 
 	def drink(self,waterpos,water_array):
 		if self.thirst>=25:										# Cat drinks if it's thirstier than a certain threshold
 			self.engaged = True
 			self.consuming = True
 			water_array[waterpos[0],waterpos[1]]-=0.5
-			self.thirst-=15		
+			self.thirst-=15
+			self.total_water_drunk+=0.5		
 
 	# Method for handling interactions with cats of the same sex
 	def interact(self,neighbours,terrain_array,food_array,water_array,neighbourhood,alive_cats):
@@ -277,10 +282,11 @@ def eat_or_drink(cat,neighbouring_food,neighbouring_water,food_array,water_array
 # Reproduction between two cats
 def reproduce(birth_index,cat1,cat2,cell):
 	global hearts
+	global event_log
 	index = len(alive_cats)+len(dead_cats)+birth_index
 	cat1.engaged = True
 	cat1.mating = True
-	cat1.mating_cooldown = 24															# Cats have a 24-hour cooldown time before they can reproduce again
+	cat1.mating_cooldown = 24														# Cats have a 24-hour cooldown time before they can reproduce again
 	cat2.engaged = True
 	cat2.mating = True
 	cat2.mating_cooldown = 24
@@ -288,7 +294,10 @@ def reproduce(birth_index,cat1,cat2,cell):
 	sex = random.choice(['male','female'])
 	baby = Cat(index,cell,1,temper,sex)
 	heart_pos = cell_size*(cat1.pos[1]+cat2.pos[1])/2 , cell_size*(cat1.pos[0]-2)
-	hearts.append(heart_pos)															# Creating a heart image to be drawn to the screen
+	hearts.append(heart_pos)														# Creating a heart image to be drawn to the screen
+	event = "Day "+str(day)+", Hour "+str(hour_of_day)+": Cat "+str(cat1.index)+" and Cat "+str(cat2.index)+" gave birth to Cat "+str(baby.index)+"!\n"
+	event_log.append(event)
+	print(event)															
 	return baby
 
 # Function that increases hunger and thirst each iteration, and hurts the cat if hunger and thirst get too high
@@ -391,11 +400,20 @@ def increment_time(hour, day, hour_of_day):
 
 # Function that kills cats if their health is below 0
 def kill_cats(alive_cats,dead_cats):
+	global event_log
 	for cat in alive_cats:
 		if cat.health<=0:
 			cat.health = 0
 			cat.alive = False
 			dead_cats.append(cat)
+			if cat.fighting:
+				event = "Day "+str(day)+", Hour "+str(hour_of_day)+": Cat "+str(cat.index)+" has been killed.\n"
+			elif cat.dehydrated:
+				event = "Day "+str(day)+", Hour "+str(hour_of_day)+": Cat "+str(cat.index)+" has died of thirst.\n"
+			else:
+				event = "Day "+str(day)+", Hour "+str(hour_of_day)+": Cat "+str(cat.index)+" has died of hunger.\n"
+			event_log.append(event)
+			print(event)
 	alive_cats = [cat for cat in alive_cats if cat.alive]
 	return alive_cats, dead_cats
 
@@ -465,13 +483,13 @@ def display_time(hour,day,hour_of_day,fontface,gameDisplay):
 	gameDisplay.blit(line1display,(10,(num_rows+1)*cell_size))
 	gameDisplay.blit(line2display,(10,(num_rows+2)*cell_size+5))	
 
-# Function to print statistics at the end of the simulation
-def show_stats(init_pop,alive_cats,dead_cats,births):
-	agr = 0 							# Number of aggressive cats alive
-	frnd = 0 							# Number of friendly cats alive
-	meek = 0 							# Number of meek cats alive
-	total_age = 0                   	# Total age of all alive cats
-	for cat in alive_cats:
+# Function that calculates and returns various statistics for a list of cat objects
+def get_stats(cats):
+	agr = 0 							# Number of aggressive cats
+	frnd = 0 							# Number of friendly cats
+	meek = 0 							# Number of meek cats
+	total_age = 0                   	# Total age of all cats
+	for cat in cats:
 		if cat.temper == "aggressive":
 			agr+=1
 		elif cat.temper == "friendly":
@@ -479,23 +497,45 @@ def show_stats(init_pop,alive_cats,dead_cats,births):
 		elif cat.temper == "meek":
 			meek+=1
 		total_age += cat.age
-	if len(alive_cats)>0:
-		avg_age = round(total_age/len(alive_cats) , 2)
+	if len(cats)>0:
+		avg_age = round(total_age/len(cats) , 2)	# Average age of cats	
 	else:
 		avg_age = 0	
+	return agr,frnd,meek,avg_age
 
-	print()
+# Function to print statistics at the end of the simulation
+def show_stats(init_cats,alive_cats,dead_cats,births):
+	init_agr,init_frnd,init_meek,init_avg_age = get_stats(init_cats)
+	curr_agr,curr_frnd,curr_meek,curr_avg_age = get_stats(alive_cats)
+	total_food_eaten = 0
+	total_water_drunk = 0
+	for cat in alive_cats+dead_cats:
+		total_food_eaten+=cat.total_food_eaten
+		total_water_drunk+=cat.total_water_drunk
+	avg_food_eaten = round(total_food_eaten/(len(alive_cats)+len(dead_cats)) , 2)
+	avg_water_drunk = round(total_water_drunk/(len(alive_cats)+len(dead_cats)) , 2)
+
+	print("\n\n#### STATISTICS ####\n\n")
 	print("Initial population: ",init_pop)
+	print("Initial number of aggressive cats: ", init_agr)
+	print("Initial number of friendly cats: ", init_frnd)
+	print("Initial number of meek cats: ",init_meek)
+	print("Initial average age of cats: ",init_avg_age)
+	print()
 	print("Births: ", births)
 	print("Deaths: ", len(dead_cats))
+	print()
 	print("Current population: ",len(alive_cats))
+	print("Current number of aggressive cats: ", curr_agr)
+	print("Current number of friendly cats: ", curr_frnd)
+	print("Current number of meek cats: ", curr_meek)
+	print("Current average age of cats: ",curr_avg_age)
 	print()
-	print("Number of aggressive cats: ", agr)
-	print("Number of friendly cats: ", frnd)
-	print("Number of meek cats: ", meek)
-	print("Average age of cats: ",avg_age)
+	print("Total units of food eaten: ", total_food_eaten)
+	print("Average units of food eaten by a single cat: ", avg_food_eaten)
+	print("Total units of water drunk: ", total_water_drunk)
+	print("Average units of water drunk by a single cat: ", avg_water_drunk)
 	print()
-	# Total food and water eaten
 
 def show_cats(alive_cats,dead_cats):
 	for cat in alive_cats:
@@ -598,68 +638,103 @@ def main_loop(alive_cats,terrain_array,food_array,water_array,cat_scent_array,ne
 
 if __name__ == "__main__":
 
-	terrain_array = read_terrain(sys.argv[1])
-	food_array, water_array = read_landmarks(sys.argv[2])
-	food_scent_array = np.zeros((num_rows+2,num_cols+2))
-	water_scent_array = np.zeros((num_rows+2,num_cols+2))
-	cat_scent_array = np.empty((num_rows+2,num_cols+2),dtype = object)		
+	try:
+		terrain_array = read_terrain(sys.argv[1])
+		food_array, water_array = read_landmarks(sys.argv[2])
+	except IndexError:
+		print("\nError: Please enter terrain csv and landmark csv as command line arguments")
+	else:
+		food_scent_array = np.zeros((num_rows+2,num_cols+2))
+		water_scent_array = np.zeros((num_rows+2,num_cols+2))
+		cat_scent_array = np.empty((num_rows+2,num_cols+2),dtype = object)		
 
-	neighbourhood = input("\nEnter the desired neighbourhood (M or V):\n") 						# Moore or Von Neumann
-	max_hours = int(input("How many hours should be simulated? (enter 0 for indefinite):\n"))	# Number of iterations the sim should run for
-	init_pop = int(input("Enter the initial number of cats:\n"))			
-	
-	alive_cats = create_cats(init_pop)										
-	dead_cats = []
-	births = 0
-	for r in range(num_rows+2):
-		for c in range(num_cols+2):
-			cat_scent_array[r,c] = [None,None,0]
-			food_scent_array[r,c] = food_array[r,c]
-			water_scent_array[r,c] = water_array[r,c]
+		invalid = True
+		while invalid:
+			invalid = False
+			neighbourhood = input("\nEnter the desired neighbourhood (M or V):\n").upper() 					# Moore or Von Neumann
+			if neighbourhood!="M" and neighbourhood!="V":
+				print("\nError: Not a valid neighbourhood.")
+				invalid = True
+		invalid = True
+		while invalid:
+			invalid = False	
+			try:	
+				max_hours = int(input("\nHow many hours should be simulated? (enter 0 for indefinite):\n"))	# Number of iterations the sim should run for
+			except ValueError:
+				print("\nError: Not a valid simulation length. Please provide an integer.")
+				invalid = True
+		invalid = True
+		while invalid:
+			invalid = False	
+			try:	
+				init_pop = int(input("\nEnter the initial number of cats:\n"))								# Initial population of cats
+			except ValueError:
+				print("\nError: Not a valid population size. Please provide an integer.")
+				invalid = True		
+		
+		alive_cats = create_cats(init_pop)					# Creating initial list of cat objects
+		init_cats = alive_cats.copy()						# Storing initial list of cat objects				
+		dead_cats = []										# List of cats that have died
+		births = 0 											# Total number of births
+		for r in range(num_rows+2):
+			for c in range(num_cols+2):
+				cat_scent_array[r,c] = [None,None,0]
+				food_scent_array[r,c] = food_array[r,c]
+				water_scent_array[r,c] = water_array[r,c]
+		event_log = ["### LOG ###\n\n","Initial population: "+str(init_pop)+"\n\n"]										# Log of events that occurred during the simulation
 
-	# Initializing pygame
-	pygame.init()
-	gameDisplay = pygame.display.set_mode((display_width,display_height))
-	fontface = pygame.ftfont.SysFont('Courier New',15,bold=True)
-	pygame.display.set_caption("Cats")
-	clock = pygame.time.Clock()
+		# Initializing pygame
+		pygame.init()
+		gameDisplay = pygame.display.set_mode((display_width,display_height))
+		fontface = pygame.ftfont.SysFont('Courier New',15,bold=True)
+		pygame.display.set_caption("Cats")
+		clock = pygame.time.Clock()
 
-	crashed = False		
-	hour,day,hour_of_day = 0,0,0
-	show_scents = False
-	show_food_scent = False
-	show_water_scent = False
-	heart_image = pygame.image.load("heart.png")
-	while not crashed:
-		hearts = []
+		crashed = False		
+		hour,day,hour_of_day = 0,0,0
+		show_scents = False
+		show_food_scent = False
+		show_water_scent = False
+		heart_image = pygame.image.load("heart.png")
 
-		for event in pygame.event.get():
+		print("\n\n#### LOG ####\n\n")
+		while not crashed:
+			hearts = []
 
-			if (event.type == pygame.QUIT):								# Quits simulation if user closes pygame window 
-				crashed = True	
-			if event.type == pygame.KEYDOWN:
-				if event.key == pygame.K_s:								# User can toggle the visualisation of cat scents with "s" key
-					show_scents = not show_scents	
-				if event.key == pygame.K_f:								# User can toggle the visualisation of food scents with "f" key
-					show_food_scent = not show_food_scent
-				if event.key == pygame.K_w:								# User can toggle the visualisation of water scents with "w" key
-					show_water_scent = not show_water_scent
+			for event in pygame.event.get():
 
-		if (max_hours>0) and (hour==max_hours):							# Quits the simulation after the specified number of iterations
-			crashed = True
+				if (event.type == pygame.QUIT):								# Quits simulation if user closes pygame window 
+					crashed = True	
+				if event.type == pygame.KEYDOWN:
+					if event.key == pygame.K_s:								# User can toggle the visualisation of cat scents with "s" key
+						show_scents = not show_scents	
+					if event.key == pygame.K_f:								# User can toggle the visualisation of food scents with "f" key
+						show_food_scent = not show_food_scent
+					if event.key == pygame.K_w:								# User can toggle the visualisation of water scents with "w" key
+						show_water_scent = not show_water_scent
 
-		cat_scent_array = update_cat_scents(alive_cats,cat_scent_array)
-		births += main_loop(alive_cats,terrain_array,food_array,water_array,cat_scent_array,neighbourhood,hour_of_day) 		
-		food_scent_array = np.where(food_array>0,food_array,diffuse(food_scent_array,neighbourhood))
-		water_scent_array = np.where(water_array>0,water_array,diffuse(water_scent_array,neighbourhood))
-		alive_cats, dead_cats = kill_cats(alive_cats,dead_cats)
-		clock.tick(framerate)																						
-		draw_screen(terrain_array,food_array, water_array, alive_cats, dead_cats, show_scents, heart_image, hearts)	    
-		display_time(hour,day,hour_of_day,fontface,gameDisplay)
-		hour,day,hour_of_day = increment_time(hour,day,hour_of_day)
-		pygame.display.update()											# Draws the new frame
+			if (max_hours>0) and (hour==max_hours):							# Quits the simulation after the specified number of iterations
+				crashed = True
 
-pygame.quit()
-show_cats(alive_cats,dead_cats)
-show_stats(init_pop,alive_cats,dead_cats,births)					# Prints statistics after the simulation is over
-quit()
+			cat_scent_array = update_cat_scents(alive_cats,cat_scent_array)
+			births += main_loop(alive_cats,terrain_array,food_array,water_array,cat_scent_array,neighbourhood,hour_of_day) 		
+			food_scent_array = np.where(food_array>0,food_array,diffuse(food_scent_array,neighbourhood))
+			water_scent_array = np.where(water_array>0,water_array,diffuse(water_scent_array,neighbourhood))
+			alive_cats, dead_cats = kill_cats(alive_cats,dead_cats)
+			clock.tick(framerate)																						
+			draw_screen(terrain_array,food_array, water_array, alive_cats, dead_cats, show_scents, heart_image, hearts)	    
+			display_time(hour,day,hour_of_day,fontface,gameDisplay)
+			hour,day,hour_of_day = increment_time(hour,day,hour_of_day)
+			pygame.display.update()											# Draws the new frame
+
+		# show_cats(alive_cats,dead_cats)
+		show_stats(init_cats,alive_cats,dead_cats,births)					# Prints statistics after the simulation is over
+		
+	pygame.quit()															# Exit simulation
+
+	save_log = input("Save event log? (Y/N): ").upper()						# User can choose to save event log to an output file
+	if save_log == "Y":	
+		with open("log.txt","w") as out:
+			for ev in event_log:
+				out.write(ev)
+	quit()

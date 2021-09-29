@@ -54,3 +54,5 @@ matplotlib
 26/Sep/2021 - Added reproduction mechanic.
 
 27/Sep/2021 - Cats search for food and water based on scent.
+
+29/Sep/2021 - Added event log and simulation statistics.
