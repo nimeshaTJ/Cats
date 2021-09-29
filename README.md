@@ -1,10 +1,10 @@
-# 
-# COMP1005 Assignment - Game of Cats
-# Semester 2, 2021 v1.0
-#
-# Student Name: Nimesha Jayatunge
-# Student ID: 20464631
-#
+## 
+## COMP1005 Assignment - Game of Cats
+## Semester 2, 2021 v1.0
+##
+## Student Name: Nimesha Jayatunge
+## Student ID: 20464631
+##
 
 ## Description
 
@@ -21,9 +21,13 @@ A simulation of cats in an environment with adjustible parameters.
 ## Contents  
  
 ├── Cats.py
+
 ├── terrain.csv
+
 ├── landmarks.csv
+
 ├── heart.png
+
 ├── README.txt
 
 ## Dependencies 
