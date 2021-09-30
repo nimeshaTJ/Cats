@@ -16,13 +16,18 @@
 # 26/Sep/2021 - Added reproduction mechanic.
 # 27/Sep/2021 - Cats search for food and water based on scent.
 # 29/Sep/2021 - Added event log and simulation statistics. 
+# 30/Sep/2021 - Log, statistics and grid state can be saved to a new folder
 
 import pygame
 import pygame.ftfont
+import os
+import datetime
 import random
 import numpy as np
 import csv
 import sys
+
+main_dir = os.getcwd()
 
 # Colours
 black = (0,0,0)
@@ -41,7 +46,10 @@ num_cols = 50
 cell_size = 10
 display_width = (num_cols+2)*cell_size				# Width of display in pixels
 display_height = (num_rows+2)*cell_size	+30			# Height of display in pixels
-framerate = 2 										# Number of timesteps run per second
+
+# Simulation parameters
+framerate = 20 										# Number of timesteps run per second
+
 
 # Defining the Cat class
 class Cat():
@@ -73,6 +81,9 @@ class Cat():
 		self.total_water_drunk = 0	
 
 	def __str__(self):
+		return "Cat "+str(self.index)
+
+	def display_self(self):
 		if self.alive:
 			status = 'ALIVE'
 		else:
@@ -203,7 +214,7 @@ def process(raw_list):
 		for value in row:
 			processed_value = None														# List item is None if no landmark present
 			if value != "":
-				processed_value = (value.split(" ")[0], int(value.split(" ")[1]))		# List item is a tuple if landmark is present
+				processed_value = (value.split(" ")[0], float(value.split(" ")[1]))		# List item is a tuple if landmark is present
 			processed_row.append(processed_value)
 		landmark_list.append(processed_row)	
 	return landmark_list
@@ -515,33 +526,35 @@ def show_stats(init_cats,alive_cats,dead_cats,births):
 	avg_food_eaten = round(total_food_eaten/(len(alive_cats)+len(dead_cats)) , 2)
 	avg_water_drunk = round(total_water_drunk/(len(alive_cats)+len(dead_cats)) , 2)
 
-	print("\n\n#### STATISTICS ####\n\n")
-	print("Initial population: ",init_pop)
-	print("Initial number of aggressive cats: ", init_agr)
-	print("Initial number of friendly cats: ", init_frnd)
-	print("Initial number of meek cats: ",init_meek)
-	print("Initial average age of cats: ",init_avg_age)
-	print()
-	print("Births: ", births)
-	print("Deaths: ", len(dead_cats))
-	print()
-	print("Current population: ",len(alive_cats))
-	print("Current number of aggressive cats: ", curr_agr)
-	print("Current number of friendly cats: ", curr_frnd)
-	print("Current number of meek cats: ", curr_meek)
-	print("Current average age of cats: ",curr_avg_age)
-	print()
-	print("Total units of food eaten: ", total_food_eaten)
-	print("Average units of food eaten by a single cat: ", avg_food_eaten)
-	print("Total units of water drunk: ", total_water_drunk)
-	print("Average units of water drunk by a single cat: ", avg_water_drunk)
-	print()
+	stats = """\n\n#### STATISTICS ####\n\n
+Initial population: """+str(init_pop)+"""
+Initial number of aggressive cats: """+str(init_agr)+"""
+Initial number of friendly cats: """+str(init_frnd)+"""
+Initial number of meek cats: """+str(init_meek)+"""
+Initial average age of cats: """+str(init_avg_age)+"""
+
+Births: """+str(births)+"""
+Deaths: """+str(len(dead_cats))+"""
+
+Current population: """+str(len(alive_cats))+"""
+Current number of aggressive cats: """+str(curr_agr)+"""
+Current number of friendly cats: """+str(curr_frnd)+"""
+Current number of meek cats: """+str(curr_meek)+"""
+Current average age of cats: """+str(curr_avg_age)+"""
+
+Total units of food eaten: """+str(total_food_eaten)+"""
+Average units of food eaten by a single cat: """+str(avg_food_eaten)+"""
+Total units of water drunk: """+str(total_water_drunk)+"""
+Average units of water drunk by a single cat: """+str(avg_water_drunk)+"\n\n"
+	print(stats)
+	return stats
+
 
 def show_cats(alive_cats,dead_cats):
 	for cat in alive_cats:
-		print(cat)
+		print(cat.display_self())
 	for cat in dead_cats:
-		print(cat)
+		print(cat.display_self())
 
 # Main sequence of events; returns the number of births that occurred during the timestep
 def main_loop(alive_cats,terrain_array,food_array,water_array,cat_scent_array,neighbourhood,hour_of_day):
@@ -646,7 +659,7 @@ if __name__ == "__main__":
 	else:
 		food_scent_array = np.zeros((num_rows+2,num_cols+2))
 		water_scent_array = np.zeros((num_rows+2,num_cols+2))
-		cat_scent_array = np.empty((num_rows+2,num_cols+2),dtype = object)		
+		cat_scent_array = np.empty((num_rows+2,num_cols+2),dtype=object)		
 
 		invalid = True
 		while invalid:
@@ -691,7 +704,7 @@ if __name__ == "__main__":
 		clock = pygame.time.Clock()
 
 		crashed = False		
-		hour,day,hour_of_day = 0,0,0
+		hour,day,hour_of_day = -1,0,0
 		show_scents = False
 		show_food_scent = False
 		show_water_scent = False
@@ -699,6 +712,8 @@ if __name__ == "__main__":
 
 		print("\n\n#### LOG ####\n\n")
 		while not crashed:
+			hour,day,hour_of_day = increment_time(hour,day,hour_of_day)
+			
 			hearts = []
 
 			for event in pygame.event.get():
@@ -724,17 +739,67 @@ if __name__ == "__main__":
 			clock.tick(framerate)																						
 			draw_screen(terrain_array,food_array, water_array, alive_cats, dead_cats, show_scents, heart_image, hearts)	    
 			display_time(hour,day,hour_of_day,fontface,gameDisplay)
-			hour,day,hour_of_day = increment_time(hour,day,hour_of_day)
 			pygame.display.update()											# Draws the new frame
 
 		# show_cats(alive_cats,dead_cats)
-		show_stats(init_cats,alive_cats,dead_cats,births)					# Prints statistics after the simulation is over
-		
-	pygame.quit()															# Exit simulation
+		stats = show_stats(init_cats,alive_cats,dead_cats,births)			# Prints statistics after the simulation is over
 
-	save_log = input("Save event log? (Y/N): ").upper()						# User can choose to save event log to an output file
-	if save_log == "Y":	
-		with open("log.txt","w") as out:
-			for ev in event_log:
-				out.write(ev)
+		show_scents = False
+		show_food_scent = False
+		show_water_scent = False
+		draw_screen(terrain_array,food_array, water_array, alive_cats, dead_cats, show_scents, heart_image, hearts)
+		display_time(hour,day,hour_of_day,fontface,gameDisplay)
+
+		now = str(datetime.datetime.now())[:19]
+		now = '_'.join(now.split(' '))
+		now = '.'.join(now.split(':'))
+		new_dir = "Simulation_"+now
+		
+		save_grid = input("\nSave current grid state? (Y/N): ").upper()
+		if save_grid == "Y":
+			if new_dir not in os.listdir():
+				os.mkdir(new_dir)
+			os.chdir(new_dir)
+
+			pygame.image.save(gameDisplay,"simulation.png")
+			terrain_array_save = terrain_array[1:num_rows+1,1:num_cols+1]
+			landmark_array_save = np.empty((num_rows,num_cols),dtype=object)
+			cats_array_save = np.empty((num_rows,num_cols),dtype=object)
+			for r in range(num_rows):
+				for c in range(num_cols):
+					cats_array_save[r,c] = ""
+					for cat in alive_cats+dead_cats:
+						if cat.pos == [r+1,c+1]:
+							if cat.alive:
+								cats_array_save[r,c]="A"
+							else:
+								cats_array_save[r,c]="D"
+							break
+						
+					if water_array[r+1,c+1] > 0:
+						landmark_array_save[r,c] = "W "+str(water_array[r+1,c+1])
+					elif food_array[r+1,c+1] > 0:
+						landmark_array_save[r,c] = "F "+str(food_array[r+1,c+1])
+					else:
+						landmark_array_save[r,c] = ""
+			np.savetxt("terrain_used.csv", terrain_array_save, delimiter=",", fmt='%s')
+			np.savetxt("final_landmarks.csv", landmark_array_save, delimiter=",", fmt='%s')
+			np.savetxt("final_cats.csv", cats_array_save, delimiter=",", fmt='%s')
+			
+			os.chdir(main_dir)
+
+		pygame.quit()														# Exit simulation
+
+		save_log = input("Save event log? (Y/N): ").upper()					# User can choose to save event log to an output file
+		if save_log == "Y":	
+			if new_dir not in os.listdir():
+				os.mkdir(new_dir)
+			os.chdir(new_dir)
+
+			with open("log.txt","w") as out:
+				for ev in event_log:
+					out.write(ev)
+				out.write(stats)
+
+			os.chdir(main_dir)
 	quit()

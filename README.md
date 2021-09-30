@@ -12,6 +12,10 @@ A simulation of cats in an environment with adjustible parameters.
 
 ## Setup
 
+Before running the program, install the required external packages using the following commands:
+
+pip install pygame==2.0.1
+pip install numpy==1.20.1
 
 
 ## Usage
@@ -31,9 +35,13 @@ A simulation of cats in an environment with adjustible parameters.
 ├── README.txt
 
 ## Dependencies 
- 
+
+pygame
+os
 numpy
-matplotlib 
+random
+csv
+sys 
  
 ## Version information 
  
@@ -56,3 +64,5 @@ matplotlib
 27/Sep/2021 - Cats search for food and water based on scent.
 
 29/Sep/2021 - Added event log and simulation statistics.
+
+30/Sep/2021 - Log, statistics and grid state can be saved to a new folder
