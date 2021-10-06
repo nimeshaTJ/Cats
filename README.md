@@ -15,7 +15,7 @@ A simulation of cats in an environment with adjustible parameters.
 Before running the program, install the required external packages using the following commands:
 
 pip install pygame==2.0.1
-pip install numpy==1.20.1
+pip install numpy==1.16.6
 
 
 ## Usage

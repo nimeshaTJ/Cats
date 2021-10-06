@@ -49,7 +49,9 @@ display_height = (num_rows+2)*cell_size	+30			# Height of display in pixels
 
 # Simulation parameters
 framerate = 20 										# Number of timesteps run per second
-
+mating_cooldown_time = 24
+eating_threshold = 25
+drinking_threshold = 25
 
 # Defining the Cat class
 class Cat():
@@ -60,7 +62,7 @@ class Cat():
 		self.age = age
 		self.temper = temper   									# Can be friendly, aggressive, or meek
 		self.sex = sex
-		self.colour = white
+		self.colour = None
 		self.height = terrain_array[self.pos[0],self.pos[1]]
 		self.attack_power = self.age*4    						# Older cats  deal more damage
 		self.sleep_chance = random.uniform(0.01,0.05)
@@ -83,6 +85,7 @@ class Cat():
 	def __str__(self):
 		return "Cat "+str(self.index)
 
+	# Method for displaying the cat's attributes
 	def display_self(self):
 		if self.alive:
 			status = 'ALIVE'
@@ -96,8 +99,38 @@ class Cat():
 		health = str(int(self.health))+"/100"
 		return "Cat "+str(self.index)+"\t|  "+status+spaces*" "+"|  Health: "+health+"\t|  Age: "+str(self.age)+"  |  Temper: "+self.temper+tabs+"|  Sex: "+self.sex+"\t|  Current position: "+str(self.pos)
 
+	# Method that assigns a colour to the cat based on its attributes	
+	def set_colour(self):
+		if self.sex=='male':
+			self.colour = cyan
+		else:
+			self.colour = pink
+		if self.fighting:
+			self.colour = red
+		elif self.fleeing:
+			self.colour = yellow
+		elif self.sleeping:
+			self.colour = grey
+
+	# Method that increases hunger and thirst each iteration, and hurts the cat if hunger and thirst get too high
+	def hunger_and_thirst(self):
+		self.starving = False
+		self.dehydrated = False
+	
+		if self.hunger >= 100:
+			self.starving = True										
+		else:
+			self.hunger+=0.5						# Cats get more hungry after each timestep		
+		if self.thirst >= 100:
+			self.dehydrated = True
+		else:
+			self.thirst+=1 						# Cats get thirsty faster than hungry
+		if self.starving or self.dehydrated:			
+			self.health-=1 						# Cat loses health over time if starving 
+	
+
 	def eat(self,foodpos,food_array):
-		if self.hunger>=25:										# Cat eats if it's hungrier than a certain threshold
+		if self.hunger>=eating_threshold:						# Cat eats if it's hungrier than a certain threshold
 			self.engaged = True
 			self.consuming = True
 			food_array[foodpos[0],foodpos[1]]-=0.5
@@ -105,7 +138,7 @@ class Cat():
 			self.total_food_eaten+=0.5
 
 	def drink(self,waterpos,water_array):
-		if self.thirst>=25:										# Cat drinks if it's thirstier than a certain threshold
+		if self.thirst>=drinking_threshold:						# Cat drinks if it's thirstier than a certain threshold
 			self.engaged = True
 			self.consuming = True
 			water_array[waterpos[0],waterpos[1]]-=0.5
@@ -157,7 +190,8 @@ class Cat():
 								if len(new_neighbours)==0:
 									self.pos = move
 									break
-		
+
+	# Method for handling behaviour while sleeping	
 	def sleep(self):
 		if self.sleeping:
 			if self.sleep_counter > 8:			# Cats sleep for 8 hours at a stretch if uninterrupted
@@ -188,36 +222,20 @@ def read_landmarks(landmark_filename):
 	food_array = np.zeros((num_rows+2,num_cols+2))
 	water_array = np.zeros((num_rows+2,num_cols+2)) 
 	with open(landmark_filename,'r') as landmark_file:
-		raw_list = list(csv.reader(landmark_file))
-	landmark_list = process(raw_list)									# landmark_list is now a list of tuples
+		landmark_list = list(csv.reader(landmark_file))
 			
 	for r in range(len(landmark_list)):
 		for c in range(len(landmark_list[0])):
 			value = landmark_list[r][c]
-			if value != None:
-				landmark_type = value[0]							
-				quantity = value[1]
+			if value != "":
 				try:													# Exception handling for data files of mismatching dimensions	
-					if landmark_type == "F":
-						food_array[r+1,c+1] = quantity					
+					if value == "F":
+						food_array[r+1,c+1] = 1					
 					else:
-						water_array[r+1,c+1] = quantity
+						water_array[r+1,c+1] = 1
 				except IndexError:
  					pass
 	return food_array, water_array
-
-# Function that processes the landmark list by converting strings into tuples of the form (landmark_type , quantity)
-def process(raw_list):
-	landmark_list = []
-	for row in raw_list:
-		processed_row = []
-		for value in row:
-			processed_value = None														# List item is None if no landmark present
-			if value != "":
-				processed_value = (value.split(" ")[0], float(value.split(" ")[1]))		# List item is a tuple if landmark is present
-			processed_row.append(processed_value)
-		landmark_list.append(processed_row)	
-	return landmark_list
 
 # Function that returns a list of valid cells that a cat can move to on the next iteration
 def get_valid_moves(cat,terrain_array,food_array,water_array,cat_scent_array,neighbourhood,alive_cats):
@@ -292,15 +310,13 @@ def eat_or_drink(cat,neighbouring_food,neighbouring_water,food_array,water_array
 
 # Reproduction between two cats
 def reproduce(birth_index,cat1,cat2,cell):
-	global hearts
-	global event_log
 	index = len(alive_cats)+len(dead_cats)+birth_index
 	cat1.engaged = True
 	cat1.mating = True
-	cat1.mating_cooldown = 24														# Cats have a 24-hour cooldown time before they can reproduce again
+	cat1.mating_cooldown = mating_cooldown_time														# Cats have a 24-hour cooldown time before they can reproduce again
 	cat2.engaged = True
 	cat2.mating = True
-	cat2.mating_cooldown = 24
+	cat2.mating_cooldown = mating_cooldown_time
 	temper = random.choice(["aggressive","friendly","meek"])
 	sex = random.choice(['male','female'])
 	baby = Cat(index,cell,1,temper,sex)
@@ -311,43 +327,12 @@ def reproduce(birth_index,cat1,cat2,cell):
 	print(event)															
 	return baby
 
-# Function that increases hunger and thirst each iteration, and hurts the cat if hunger and thirst get too high
-def hunger_and_thirst(alive_cats):
-	for cat in alive_cats:
-		if cat.hunger >= 100:
-			cat.starving = True										
-		else:
-			cat.hunger+=1						# Cats get more hungry after each timestep		
-		if cat.thirst >= 100:
-			cat.dehydrated = True
-		else:
-			cat.thirst+=2 						# Cats get thirsty faster than hungry
-		if cat.starving or cat.dehydrated:			
-			cat.health-=1 						# Cat loses health over time if starving or 
-	
-		cat.starving = False
-		cat.dehydrated = False
-
 # Function that maps height values (0 to 10) to RGB (dark brown to light brown)
 def assign_terrain_colour(height):
 	R = 5*height + 40
 	G = -2*height + 90
 	B = 0
 	return((R,G,B))
-
-# Funnction that assigns a colour to each cat based on its attributes
-def cat_colour(alive_cats):
-	for cat in alive_cats:
-		if cat.sex=='male':
-			cat.colour = cyan
-		else:
-			cat.colour = pink
-		if cat.fighting:
-			cat.colour = red
-		elif cat.fleeing:
-			cat.colour = yellow
-		elif cat.sleeping:
-			cat.colour = grey
 
 # Function that assigns colour and transparency to a cat's scent
 def cat_scent_colour(sex,value):
@@ -411,7 +396,6 @@ def increment_time(hour, day, hour_of_day):
 
 # Function that kills cats if their health is below 0
 def kill_cats(alive_cats,dead_cats):
-	global event_log
 	for cat in alive_cats:
 		if cat.health<=0:
 			cat.health = 0
@@ -457,8 +441,8 @@ def draw_screen(terrain_array,food_array, water_array, alive_cats, dead_cats, sh
 			c = col+1
 			terrain_colour = assign_terrain_colour(terrain_array[r,c])	
 			pygame.draw.rect(gameDisplay, terrain_colour,[c*cell_size,r*cell_size,cell_size,cell_size])					
-			pygame.draw.circle(gameDisplay,green,((c+0.5)*cell_size,(r+0.5)*cell_size),food_array[r,c]*cell_size/2)	# Food are green circles
-			pygame.draw.circle(gameDisplay,blue,((c+0.5)*cell_size,(r+0.5)*cell_size),water_array[r,c]*cell_size/2)	# Water are blue circles
+			pygame.draw.circle(gameDisplay,green,(int((c+0.5)*cell_size),int((r+0.5)*cell_size)),int(food_array[r,c]*cell_size/2))	# Food are green circles
+			pygame.draw.circle(gameDisplay,blue,(int((c+0.5)*cell_size),int((r+0.5)*cell_size)),int(water_array[r,c]*cell_size/2))	# Water are blue circles
 			if show_scents:
 				scent_image,scentcolour = cat_scent_colour(cat_scent_array[r,c][1],cat_scent_array[r,c][2])
 				if cat_scent_array[r,c][2]>0:
@@ -480,8 +464,8 @@ def draw_screen(terrain_array,food_array, water_array, alive_cats, dead_cats, sh
 	for cat in alive_cats:
 		r = cat.pos[0]
 		c = cat.pos[1]
-		pygame.draw.circle(gameDisplay , cat.colour, ((c+0.5)*cell_size,(r+0.5)*cell_size), cell_size*(cat.age/16 + 1/4))				# Live cats are coloured circles
-		pygame.draw.circle(gameDisplay , black, ((c+0.5)*cell_size,(r+0.5)*cell_size), cell_size*(cat.age/16 + 1/4), int(cell_size/10)) # With a black outline
+		pygame.draw.circle(gameDisplay , cat.colour, (int((c+0.5)*cell_size),int((r+0.5)*cell_size)),int(cell_size*(cat.age/16 + 1/4)))				# Live cats are coloured circles
+		pygame.draw.circle(gameDisplay , black, (int((c+0.5)*cell_size),int((r+0.5)*cell_size)), int(cell_size*(cat.age/16 + 1/4)), int(cell_size/10)) # With a black outline
 	for heart in hearts:
 		gameDisplay.blit(heart_image,(heart[0],heart[1]))		# Draws a heart on screen if cats reproduce
 
@@ -549,12 +533,34 @@ Average units of water drunk by a single cat: """+str(avg_water_drunk)+"\n\n"
 	print(stats)
 	return stats
 
-
+# Function that displays each cat's status 
 def show_cats(alive_cats,dead_cats):
 	for cat in alive_cats:
 		print(cat.display_self())
 	for cat in dead_cats:
 		print(cat.display_self())
+
+# Function to ask user for a choice of two inputs
+def ask_choice(prompt,option1,option2,error_message):
+	invalid = True
+	while invalid:
+		invalid = False
+		ans = input(prompt).upper() 				
+		if ans!=option1 and ans!=option2:
+			print(error_message)
+			invalid = True
+	return ans
+
+def ask_number(prompt,error_message):
+	invalid = True
+	while invalid:
+		invalid = False	
+		try:	
+			ans = int(input(prompt))	
+		except ValueError:
+			print(error_message)
+			invalid = True
+	return ans
 
 # Main sequence of events; returns the number of births that occurred during the timestep
 def main_loop(alive_cats,terrain_array,food_array,water_array,cat_scent_array,neighbourhood,hour_of_day):
@@ -593,21 +599,22 @@ def main_loop(alive_cats,terrain_array,food_array,water_array,cat_scent_array,ne
 	# Sleeping rules						
 	for cat in alive_cats:
 		initial_sleep_chance = cat.sleep_chance
-		if hour_of_day > 21 or hour_of_day < 5:						# More likely to sleep at night
+		if hour_of_day >= 21 or hour_of_day < 5:					# More likely to sleep at night
 			cat.sleep_chance*=5
 		multiplier = -0.02*cat.health + 3 							# The lower the cat's health, the more likely it is to go to sleep
 		cat.sleep_chance*=multiplier
-		if random.random()<cat.sleep_chance and (cat.hunger < 50 and cat.thirst < 50) and (not cat.engaged):			# Cats only sleep if they are not hungry or thirsty
+		if random.random()<cat.sleep_chance and (cat.hunger < 75 and cat.thirst < 75) and (not cat.engaged):		# Cats only sleep if they are not hungry or thirsty
 			cat.sleeping = True
 		cat.sleep_chance = initial_sleep_chance
 
 	# Movement rules	
 	for cat in alive_cats:
 		cat.sleep()
+		# print(cat.hunger,cat.thirst,cat.health)
 		if (not cat.engaged) and (not cat.sleeping):
 			valid_moves = get_valid_moves(cat,terrain_array,food_array,water_array,cat_scent_array,neighbourhood,alive_cats)
 			choices = [v for v in valid_moves]			# List of move choices the cat will randomly choose from 						
-			if cat.hunger<50 and cat.thirst<50 and cat.mating_cooldown==0:
+			if cat.hunger<eating_threshold and cat.thirst<drinking_threshold and cat.mating_cooldown==0:
 				# Making the cat follow the scent of the opposite sex:
 				neighbour_scent_value = 0
 				for move in valid_moves:
@@ -621,7 +628,7 @@ def main_loop(alive_cats,terrain_array,food_array,water_array,cat_scent_array,ne
 							choices.append(move)
 				pass
 			else:
-				# Making the cat food and water scents:
+				# Making the cat follow food and water scents:
 				food_scents = []							# List of cells with food scents in the neighbourhood
 				water_scents = []							# List of cells with water scents in the neighbourhood
 				temp_choices = []
@@ -630,23 +637,26 @@ def main_loop(alive_cats,terrain_array,food_array,water_array,cat_scent_array,ne
 						food_scents.append(food_scent_array[move[0],move[1]])
 					if water_scent_array[move[0],move[1]]>0:
 						water_scents.append(water_scent_array[move[0],move[1]])
-				if (cat.hunger>50) and (cat.hunger>cat.thirst or len(water_scents)==0):
+				if (cat.hunger>eating_threshold) and (cat.hunger>cat.thirst or len(water_scents)==0):
 					for move in valid_moves:
 						probability = food_scent_array[move[0],move[1]]
 						if random.random()<=probability:
 							temp_choices.append(move)
-				elif (cat.thirst>50) and (cat.thirst>=cat.hunger or len(food_scents)==0):
+				elif (cat.thirst>drinking_threshold) and (cat.thirst>=cat.hunger or len(food_scents)==0):
 					for move in valid_moves:
 						probability = water_scent_array[move[0],move[1]]
 						if random.random()<=probability:
 							temp_choices.append(move)
-				if len(temp_choices)>0:									# If there are no food or water scents in the neighbourhood, move choices list is unchanged
+				if len(temp_choices)>0:						# If there are no food or water scents in the neighbourhood, move choices list is unchanged
 					choices = [c for c in temp_choices]
 			cat.pos = random.choice(choices)
 	
 	alive_cats.extend(births)				# Adding new births to the cat population		
-	cat_colour(alive_cats)					# Setting the colour for each cat
-	hunger_and_thirst(alive_cats)			# Updating each cat's hunger and thirst levels
+
+	for cat in alive_cats:
+		cat.set_colour()				# Setting the colour for each cat
+		cat.hunger_and_thirst()				# Updating each cat's hunger and thirst levels
+	
 	return len(births)						# Returning number of births that occurred 
 
 if __name__ == "__main__":
@@ -655,35 +665,15 @@ if __name__ == "__main__":
 		terrain_array = read_terrain(sys.argv[1])
 		food_array, water_array = read_landmarks(sys.argv[2])
 	except IndexError:
-		print("\nError: Please enter terrain csv and landmark csv as command line arguments")
+		print("\nError: Please enter valid terrain csv and landmark csv as command line arguments.")
 	else:
 		food_scent_array = np.zeros((num_rows+2,num_cols+2))
 		water_scent_array = np.zeros((num_rows+2,num_cols+2))
 		cat_scent_array = np.empty((num_rows+2,num_cols+2),dtype=object)		
 
-		invalid = True
-		while invalid:
-			invalid = False
-			neighbourhood = input("\nEnter the desired neighbourhood (M or V):\n").upper() 					# Moore or Von Neumann
-			if neighbourhood!="M" and neighbourhood!="V":
-				print("\nError: Not a valid neighbourhood.")
-				invalid = True
-		invalid = True
-		while invalid:
-			invalid = False	
-			try:	
-				max_hours = int(input("\nHow many hours should be simulated? (enter 0 for indefinite):\n"))	# Number of iterations the sim should run for
-			except ValueError:
-				print("\nError: Not a valid simulation length. Please provide an integer.")
-				invalid = True
-		invalid = True
-		while invalid:
-			invalid = False	
-			try:	
-				init_pop = int(input("\nEnter the initial number of cats:\n"))								# Initial population of cats
-			except ValueError:
-				print("\nError: Not a valid population size. Please provide an integer.")
-				invalid = True		
+		neighbourhood = ask_choice("\nEnter the desired neighbourhood (M or V):\n","M","V","\nError: Not a valid neighbourhood.") 											# Moore or Von Neumann
+		max_hours = ask_number("\nHow many hours should be simulated? (enter 0 for indefinite):\n","\nError: Not a valid simulation length. Please provide an integer.") 	# Number of iterations the sim should run for
+		init_pop = ask_number("\nEnter the initial number of cats:\n","\nError: Not a valid simulation length. Please provide an integer.") 								# Initial population of cats	
 		
 		alive_cats = create_cats(init_pop)					# Creating initial list of cat objects
 		init_cats = alive_cats.copy()						# Storing initial list of cat objects				
@@ -694,7 +684,7 @@ if __name__ == "__main__":
 				cat_scent_array[r,c] = [None,None,0]
 				food_scent_array[r,c] = food_array[r,c]
 				water_scent_array[r,c] = water_array[r,c]
-		event_log = ["### LOG ###\n\n","Initial population: "+str(init_pop)+"\n\n"]										# Log of events that occurred during the simulation
+		event_log = ["### LOG ###\n\n"]						# Log of events that occur during the simulation
 
 		# Initializing pygame
 		pygame.init()
@@ -710,6 +700,7 @@ if __name__ == "__main__":
 		show_water_scent = False
 		heart_image = pygame.image.load("heart.png")
 
+		print("\n\n\t\t\tSIMULATION START\n")
 		print("\n\n#### LOG ####\n\n")
 		while not crashed:
 			hour,day,hour_of_day = increment_time(hour,day,hour_of_day)
@@ -741,6 +732,7 @@ if __name__ == "__main__":
 			display_time(hour,day,hour_of_day,fontface,gameDisplay)
 			pygame.display.update()											# Draws the new frame
 
+		print("\n\n\n\t\t\tSIMULATION END\n\n\n")
 		# show_cats(alive_cats,dead_cats)
 		stats = show_stats(init_cats,alive_cats,dead_cats,births)			# Prints statistics after the simulation is over
 
@@ -755,7 +747,7 @@ if __name__ == "__main__":
 		now = '.'.join(now.split(':'))
 		new_dir = "Simulation_"+now
 		
-		save_grid = input("\nSave current grid state? (Y/N): ").upper()
+		save_grid = ask_choice("\nSave current grid state? (Y/N): ","Y","N","\nError: Please enter Y or N.")	# User can choose to save grid state as an image and arrays
 		if save_grid == "Y":
 			if new_dir not in os.listdir():
 				os.mkdir(new_dir)
@@ -768,20 +760,19 @@ if __name__ == "__main__":
 			for r in range(num_rows):
 				for c in range(num_cols):
 					cats_array_save[r,c] = ""
-					for cat in alive_cats+dead_cats:
-						if cat.pos == [r+1,c+1]:
-							if cat.alive:
-								cats_array_save[r,c]="A"
-							else:
-								cats_array_save[r,c]="D"
-							break
-						
 					if water_array[r+1,c+1] > 0:
 						landmark_array_save[r,c] = "W "+str(water_array[r+1,c+1])
 					elif food_array[r+1,c+1] > 0:
 						landmark_array_save[r,c] = "F "+str(food_array[r+1,c+1])
 					else:
 						landmark_array_save[r,c] = ""
+
+			for cat in alive_cats+dead_cats:
+				r,c = cat.pos[0],cat.pos[1]
+				if cat.alive:
+					cats_array_save[r-1,c-1]="A"
+				else:
+					cats_array_save[r-1,c-1]="D"
 			np.savetxt("terrain_used.csv", terrain_array_save, delimiter=",", fmt='%s')
 			np.savetxt("final_landmarks.csv", landmark_array_save, delimiter=",", fmt='%s')
 			np.savetxt("final_cats.csv", cats_array_save, delimiter=",", fmt='%s')
@@ -790,7 +781,7 @@ if __name__ == "__main__":
 
 		pygame.quit()														# Exit simulation
 
-		save_log = input("Save event log? (Y/N): ").upper()					# User can choose to save event log to an output file
+		save_log = ask_choice("\nSave event log? (Y/N): ","Y","N","\nError: Please enter Y or N.")	# User can choose to save event log to an output file
 		if save_log == "Y":	
 			if new_dir not in os.listdir():
 				os.mkdir(new_dir)
