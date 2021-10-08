@@ -25,6 +25,8 @@ pip install numpy==1.16.6
 
 python3 Cats.py terrain.csv landmarks.csv
 
+<> - optional
+
 2. Enter "M" or "V" for neighbourhood choice
 
 3. Enter number of hours to simulate (1 hour = 1 timestep)

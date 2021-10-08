@@ -51,6 +51,7 @@ display_height = (num_rows+2)*cell_size	+30			# Height of display in pixels
 framerate = 20 										# Number of timesteps run per second
 mating_cooldown_time = 24
 jump_height = 4
+sleep_hours = 8
 eating_threshold = 25
 drinking_threshold = 25
 
@@ -195,12 +196,12 @@ class Cat():
 	# Method for handling behaviour while sleeping	
 	def sleep(self):
 		if self.sleeping:
-			if self.sleep_counter > 8:			# Cats sleep for 8 hours at a stretch if uninterrupted
+			if self.sleep_counter > sleep_hours:			# Cats sleep for 'sleep_hours' number of hours at a stretch if uninterrupted
 				self.sleep_counter = 0
 				self.sleeping = False
 			else:
 				if self.health <= 95:
-					self.health += 5 			# Cats gain health while sleeping
+					self.health += 5 						# Cats gain health while sleeping
 				self.sleep_counter+=1
 		else:
 			self.sleep_counter = 0
@@ -250,15 +251,15 @@ def get_valid_moves(cat,terrain_array,food_array,water_array,cat_scent_array,nei
 	valid_moves = [p for p in possible_moves]
 	for cell in possible_moves:
 		try:
-			if cell[0]<1 or cell[0]>num_rows or cell[1]<1 or cell[1]>num_cols:							# Cats can't leave borders
+			if cell[0]<1 or cell[0]>num_rows or cell[1]<1 or cell[1]>num_cols:									# Cats can't leave borders
 				valid_moves.remove(cell)
 			elif abs(terrain_array[cell[0],cell[1]] - terrain_array[cat.pos[0],cat.pos[1]]) > jump_height:		# Cats can't move across steep slopes
 				valid_moves.remove(cell)
-			elif (food_array[cell[0],cell[1]] > 0) or (water_array[cell[0],cell[1]] > 0):				# Cats can't walk on food or water
+			elif (food_array[cell[0],cell[1]] > 0) or (water_array[cell[0],cell[1]] > 0):						# Cats can't walk on food or water
 				valid_moves.remove(cell)
 			else:
 				for other_cat in alive_cats:
-					if other_cat != cat and other_cat.pos == cell:										# Cats can't walk on other cats
+					if other_cat != cat and other_cat.pos == cell:												# Cats can't walk on other cats
 						valid_moves.remove(cell)		
 		except ValueError:
 			pass
@@ -665,11 +666,19 @@ def main_loop(alive_cats,terrain_array,food_array,water_array,cat_scent_array,ne
 if __name__ == "__main__":
 
 	try:
-		terrain_array = read_terrain(sys.argv[1])
-		food_array, water_array = read_landmarks(sys.argv[2])
+		terrain_array = read_terrain(sys.argv[1])				# Command line argument for terrain file
+		food_array, water_array = read_landmarks(sys.argv[2])	# Command line argument for landmark file
 	except IndexError:
 		print("\nError: Please enter valid terrain csv and landmark csv as command line arguments.")
 	else:
+		try:												
+			mating_cooldown_time = int(sys.argv[3])			# User can provide a different mating cooldown time as a cmd line argument (optional)
+		except:
+			pass
+		try:							
+			sleep_hours = int(sys.argv[4])					# User can provide a different sleep length as a cmd line argument (optional)
+		except:
+			pass
 		food_scent_array = np.zeros((num_rows+2,num_cols+2))
 		water_scent_array = np.zeros((num_rows+2,num_cols+2))
 		cat_scent_array = np.empty((num_rows+2,num_cols+2),dtype=object)		
