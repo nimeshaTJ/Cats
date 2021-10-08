@@ -50,6 +50,7 @@ display_height = (num_rows+2)*cell_size	+30			# Height of display in pixels
 # Simulation parameters
 framerate = 20 										# Number of timesteps run per second
 mating_cooldown_time = 24
+jump_height = 4
 eating_threshold = 25
 drinking_threshold = 25
 
@@ -120,7 +121,7 @@ class Cat():
 		if self.hunger >= 100:
 			self.starving = True										
 		else:
-			self.hunger+=0.5						# Cats get more hungry after each timestep		
+			self.hunger+=0.5					# Cats get more hungry after each timestep		
 		if self.thirst >= 100:
 			self.dehydrated = True
 		else:
@@ -147,49 +148,49 @@ class Cat():
 
 	# Method for handling interactions with cats of the same sex
 	def interact(self,neighbours,terrain_array,food_array,water_array,neighbourhood,alive_cats):
-			has_an_aggressive_neighbour = False
-			for neighbour in neighbours:
-				attack_power = self.attack_power
+		has_an_aggressive_neighbour = False
+		for neighbour in neighbours:
+			attack_power = self.attack_power
 
-				if self.sex==neighbour.sex:
+			if self.sex==neighbour.sex:
 
-					# Aggressive cats attack all other cats (of the same sex) unless sleeping
-					if self.temper == "aggressive":
-						if self.height>neighbour.height:
-							attack_power *= 1.25 												# Cats on higher ground deal more damage
-						if (not self.sleeping) or neighbour.temper=="aggressive":				
-							self.engaged = True
-							self.fighting = True
-							self.sleeping = False												
-							neighbour.health -= attack_power
-						attack_power = self.attack_power	
-					
-					# Friendly cats only attak aggressive cats (of the same sex)
-					elif self.temper == "friendly":
-						if self.height>neighbour.height:
-							attack_power *= 1.25
-						if (neighbour.temper == "aggressive") and (not neighbour.sleeping):	
-							self.sleeping = False
-							self.engaged = True
-							self.fighting = True
-							neighbour.health -= attack_power
-						attack_power = self.attack_power
+				# Aggressive cats attack all other cats (of the same sex) unless sleeping
+				if self.temper == "aggressive":
+					if self.height>neighbour.height:
+						attack_power *= 1.25 												# Cats on higher ground deal more damage
+					if (not self.sleeping) or neighbour.temper=="aggressive":				
+						self.engaged = True
+						self.fighting = True
+						self.sleeping = False												
+						neighbour.health -= attack_power
+					attack_power = self.attack_power	
+				
+				# Friendly cats only attak aggressive cats (of the same sex)
+				elif self.temper == "friendly":
+					if self.height>neighbour.height:
+						attack_power *= 1.25
+					if (neighbour.temper == "aggressive") and (not neighbour.sleeping):	
+						self.sleeping = False
+						self.engaged = True
+						self.fighting = True
+						neighbour.health -= attack_power
+					attack_power = self.attack_power
 
-					# Meek cats run away from all types of cats (of the same sex) unless sleeping
-					else:
-						if neighbour.temper == "aggressive":
-							has_an_aggressive_neighbour = True
-						if (not self.sleeping) or has_an_aggressive_neighbour:
-							self.sleeping = False
-							self.engaged = True
-							self.fleeing = True
-							valid_moves = get_valid_moves(self,terrain_array,food_array,water_array,cat_scent_array,neighbourhood,alive_cats)
-							self.pos = random.choice(valid_moves)
-							for move in valid_moves:
-								new_neighbours = check_surroundings(self,move,alive_cats)[0]
-								if len(new_neighbours)==0:
-									self.pos = move
-									break
+				# Meek cats run away from all types of cats (of the same sex) unless sleeping
+				else:
+					if neighbour.temper == "aggressive":
+						has_an_aggressive_neighbour = True
+					if (not self.sleeping) or has_an_aggressive_neighbour:
+						self.sleeping = False
+						self.engaged = True
+						self.fleeing = True
+						valid_moves = get_valid_moves(self,terrain_array,food_array,water_array,cat_scent_array,neighbourhood,alive_cats)
+						self.pos = random.choice(valid_moves)
+						for move in valid_moves:
+							new_neighbours = check_surroundings(self,move,alive_cats)[0]
+							if len(new_neighbours)==0:
+								self.pos = move
+								break
 
 	# Method for handling behaviour while sleeping	
 	def sleep(self):
@@ -251,7 +252,7 @@ def get_valid_moves(cat,terrain_array,food_array,water_array,cat_scent_array,nei
 		try:
 			if cell[0]<1 or cell[0]>num_rows or cell[1]<1 or cell[1]>num_cols:							# Cats can't leave borders
 				valid_moves.remove(cell)
-			elif abs(terrain_array[cell[0],cell[1]] - terrain_array[cat.pos[0],cat.pos[1]]) > 4:		# Cats can't move across steep slopes
+			elif abs(terrain_array[cell[0],cell[1]] - terrain_array[cat.pos[0],cat.pos[1]]) > jump_height:		# Cats can't move across steep slopes
 				valid_moves.remove(cell)
 			elif (food_array[cell[0],cell[1]] > 0) or (water_array[cell[0],cell[1]] > 0):				# Cats can't walk on food or water
 				valid_moves.remove(cell)
@@ -281,7 +282,7 @@ def check_surroundings(cat,pos,alive_cats):
 	
 	valid_surrounding_cells = [cell for cell in surrounding_cells]	
 	for cell in surrounding_cells:
-		if abs(terrain_array[cell[0],cell[1]] - terrain_array[r,c]) > 4:											# Cats don't interact with cells that are across a steep slope
+		if abs(terrain_array[cell[0],cell[1]] - terrain_array[r,c]) > jump_height:											# Cats don't interact with cells that are across a steep slope
 			valid_surrounding_cells.remove(cell)	
 
 	neighbours = [neighbour for neighbour in alive_cats if (neighbour!=cat) and (neighbour.pos in valid_surrounding_cells)]
@@ -370,7 +371,8 @@ def update_cat_scents(alive_cats,cat_scent_array):
 				temp_scents[r+1,c+1] = [None,None,0]
 	return temp_scents				
 
-# Function that diffuses the scent of food and water into the environment; The diffusion model is sourced from heat.py of Prac03   
+# Function that diffuses the scent of food and water into the environment; The diffusion model is sourced from heat.py from COMP1005 Prac05
+# Maxville, Valerie. 2021. “heat.py” Prac05 supporting files, COMP1005 Fundamentals of Programming, Semester 2, 2021
 def diffuse(array,neighbourhood):
 	copy = array.copy()
 	for r in range(1,len(array)-1):
@@ -464,8 +466,8 @@ def draw_screen(terrain_array,food_array, water_array, alive_cats, dead_cats, sh
 	for cat in alive_cats:
 		r = cat.pos[0]
 		c = cat.pos[1]
-		pygame.draw.circle(gameDisplay , cat.colour, (int((c+0.5)*cell_size),int((r+0.5)*cell_size)),int(cell_size*(cat.age/16 + 1/4)))				# Live cats are coloured circles
-		pygame.draw.circle(gameDisplay , black, (int((c+0.5)*cell_size),int((r+0.5)*cell_size)), int(cell_size*(cat.age/16 + 1/4)), int(cell_size/10)) # With a black outline
+		pygame.draw.circle(gameDisplay , cat.colour, (int((c+0.5)*cell_size),int((r+0.5)*cell_size)),int(cell_size*(cat.age/16 + 1/4)))					# Live cats are coloured circles
+		pygame.draw.circle(gameDisplay , black, (int((c+0.5)*cell_size),int((r+0.5)*cell_size)), int(cell_size*(cat.age/16 + 1/4)), int(cell_size/10))  # With a black outline
 	for heart in hearts:
 		gameDisplay.blit(heart_image,(heart[0],heart[1]))		# Draws a heart on screen if cats reproduce
 
@@ -551,6 +553,7 @@ def ask_choice(prompt,option1,option2,error_message):
 			invalid = True
 	return ans
 
+# Function to ask user for an integer input
 def ask_number(prompt,error_message):
 	invalid = True
 	while invalid:
@@ -654,7 +657,7 @@ def main_loop(alive_cats,terrain_array,food_array,water_array,cat_scent_array,ne
 	alive_cats.extend(births)				# Adding new births to the cat population		
 
 	for cat in alive_cats:
-		cat.set_colour()				# Setting the colour for each cat
+		cat.set_colour()					# Setting the colour for each cat
 		cat.hunger_and_thirst()				# Updating each cat's hunger and thirst levels
 	
 	return len(births)						# Returning number of births that occurred 
@@ -745,18 +748,18 @@ if __name__ == "__main__":
 		now = str(datetime.datetime.now())[:19]
 		now = '_'.join(now.split(' '))
 		now = '.'.join(now.split(':'))
-		new_dir = "Simulation_"+now
+		new_dir = "Simulation_"+now 			# Creating a unique name for the new directory
 		
 		save_grid = ask_choice("\nSave current grid state? (Y/N): ","Y","N","\nError: Please enter Y or N.")	# User can choose to save grid state as an image and arrays
 		if save_grid == "Y":
 			if new_dir not in os.listdir():
-				os.mkdir(new_dir)
+				os.mkdir(new_dir)				# Creating new directory for data to be saved in	
 			os.chdir(new_dir)
 
-			pygame.image.save(gameDisplay,"simulation.png")
-			terrain_array_save = terrain_array[1:num_rows+1,1:num_cols+1]
-			landmark_array_save = np.empty((num_rows,num_cols),dtype=object)
-			cats_array_save = np.empty((num_rows,num_cols),dtype=object)
+			pygame.image.save(gameDisplay,"simulation.png")							# Saving image of final frame of simulation
+			terrain_array_save = terrain_array[1:num_rows+1,1:num_cols+1]			# Terrain array used in the simulation
+			landmark_array_save = np.empty((num_rows,num_cols),dtype=object)		# Layout of food and water in the final frame of simulation
+			cats_array_save = np.empty((num_rows,num_cols),dtype=object)			# Positions of cats in final frame of simulation
 			for r in range(num_rows):
 				for c in range(num_cols):
 					cats_array_save[r,c] = ""
@@ -773,13 +776,15 @@ if __name__ == "__main__":
 					cats_array_save[r-1,c-1]="A"
 				else:
 					cats_array_save[r-1,c-1]="D"
+
+			# Converting the arrays to csv files and saving them
 			np.savetxt("terrain_used.csv", terrain_array_save, delimiter=",", fmt='%s')
 			np.savetxt("final_landmarks.csv", landmark_array_save, delimiter=",", fmt='%s')
 			np.savetxt("final_cats.csv", cats_array_save, delimiter=",", fmt='%s')
 			
 			os.chdir(main_dir)
 
-		pygame.quit()														# Exit simulation
+		pygame.quit()		  		# Exit simulation
 
 		save_log = ask_choice("\nSave event log? (Y/N): ","Y","N","\nError: Please enter Y or N.")	# User can choose to save event log to an output file
 		if save_log == "Y":	

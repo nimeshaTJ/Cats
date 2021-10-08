@@ -15,11 +15,33 @@ A simulation of cats in an environment with adjustible parameters.
 Before running the program, install the required external packages using the following commands:
 
 pip install pygame==2.0.1
+
 pip install numpy==1.16.6
 
 
 ## Usage
 
+1. Run the program using the following command:
+
+python3 Cats.py terrain.csv landmarks.csv
+
+2. Enter "M" or "V" for neighbourhood choice
+
+3. Enter number of hours to simulate (1 hour = 1 timestep)
+
+4. Enter initial number of cats
+
+5. Interact with the simulation using the following keys:
+
+‘s’ – toggles the visualisation of cat scents (blue for male and pink for female)
+
+‘f’ – toggles  the visualisation of food scents
+
+‘w’ – toggles  the visualisation of water scents
+
+6. Enter "Y" or "N" to save final grid state or not
+
+7. Enter "Y" or "N" to save event log or not
 
  
 ## Contents  
@@ -37,10 +59,15 @@ pip install numpy==1.16.6
 ## Dependencies 
 
 pygame
+
 os
+
 numpy
+
 random
+
 csv
+
 sys 
  
 ## Version information 
