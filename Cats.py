@@ -487,6 +487,7 @@ def get_stats(cats):
 	frnd = 0 							# Number of friendly cats
 	meek = 0 							# Number of meek cats
 	total_age = 0                   	# Total age of all cats
+	total_health = 0 					# Total health of all cats
 	for cat in cats:
 		if cat.temper == "aggressive":
 			agr+=1
@@ -495,16 +496,19 @@ def get_stats(cats):
 		elif cat.temper == "meek":
 			meek+=1
 		total_age += cat.age
+		total_health += cat.health
 	if len(cats)>0:
-		avg_age = round(total_age/len(cats) , 2)	# Average age of cats	
+		avg_age = round(total_age/len(cats) , 2)		# Average age of cats	
+		avg_health = round(total_health/len(cats) , 2) 	# Average health of cats
 	else:
-		avg_age = 0	
-	return agr,frnd,meek,avg_age
+		avg_age = 0
+		avg_health = 0	
+	return agr,frnd,meek,avg_age,avg_health
 
 # Function to print statistics at the end of the simulation
 def show_stats(init_cats,alive_cats,dead_cats,births):
-	init_agr,init_frnd,init_meek,init_avg_age = get_stats(init_cats)
-	curr_agr,curr_frnd,curr_meek,curr_avg_age = get_stats(alive_cats)
+	init_agr,init_frnd,init_meek,init_avg_age,init_avg_health = get_stats(init_cats)
+	curr_agr,curr_frnd,curr_meek,curr_avg_age,curr_avg_health = get_stats(alive_cats)
 	total_food_eaten = 0
 	total_water_drunk = 0
 	for cat in alive_cats+dead_cats:
@@ -519,6 +523,7 @@ Initial number of aggressive cats: """+str(init_agr)+"""
 Initial number of friendly cats: """+str(init_frnd)+"""
 Initial number of meek cats: """+str(init_meek)+"""
 Initial average age of cats: """+str(init_avg_age)+"""
+Initial average health of cats: 100
 
 Births: """+str(births)+"""
 Deaths: """+str(len(dead_cats))+"""
@@ -528,6 +533,7 @@ Current number of aggressive cats: """+str(curr_agr)+"""
 Current number of friendly cats: """+str(curr_frnd)+"""
 Current number of meek cats: """+str(curr_meek)+"""
 Current average age of cats: """+str(curr_avg_age)+"""
+Current average health of cats: """+str(curr_avg_health)+"""
 
 Total units of food eaten: """+str(total_food_eaten)+"""
 Average units of food eaten by a single cat: """+str(avg_food_eaten)+"""
