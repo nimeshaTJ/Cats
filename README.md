@@ -21,9 +21,11 @@ pip install numpy==1.16.6
 
 ## Usage
 
+MAIN SIMULATION
+
 1. Run the program using the following command:
 
-python3 Cats.py terrain.csv landmarks.csv
+python3 Cats.py terrain.csv landmarks.csv <mating_cooldown_time> <sleep_hours>
 
 <> - optional
 
@@ -36,27 +38,45 @@ python3 Cats.py terrain.csv landmarks.csv
 5. Interact with the simulation using the following keys:
 
 ‘s’ – toggles the visualisation of cat scents (blue for male and pink for female)
-
 ‘f’ – toggles  the visualisation of food scents
-
 ‘w’ – toggles  the visualisation of water scents
 
 6. Enter "Y" or "N" to save final grid state or not
 
 7. Enter "Y" or "N" to save event log or not
 
+
+PARAMETER SWEEP
+
+1. Run the program using the following command:
+
+sh ParameterSweep.sh terrain.csv landmarks.csv <neighbourhood> <max_hours> <cat_number> <low_cooldown> <hi_cooldown> <step_cooldown> <low_sleep> <hi_sleep> <step_sleep>
+
+
  
 ## Contents  
  
-├── Cats.py
+├── Cats.py           -  Main source code
 
-├── terrain.csv
+├── SweepBase.py      -  Base code for parameter sweep
 
-├── landmarks.csv
+├── ParameterSweep.sh -  Bash script for parameter sweep
 
-├── heart.png
+├── terrain.csv       -  csv containing terrain height data for simulation
 
-├── README.txt
+├── terrain2.csv      -  csv containing terrain height data for testing
+
+├── landmarks.csv     -  csv containing food and water data for simulation
+
+├── landmarks2.csv    -  csv containing food and water data for testing
+
+├── landmarks3.csv    -  empty csv for testing
+
+├── heart.png         -  Sprite of a cartoon heart, used in the simulation
+
+├── README.txt        -  README file
+
+└──_Tests	      -  Test outputs
 
 ## Dependencies 
 
@@ -95,3 +115,5 @@ sys
 29/Sep/2021 - Added event log and simulation statistics.
 
 30/Sep/2021 - Log, statistics and grid state can be saved to a new folder
+
+10/Oct/2021 - Added parameter sweep functionality

@@ -1,0 +1,34 @@
+### LOG ###
+
+Day 0, Hour 19: Cat 7 has been killed.
+Day 0, Hour 23: Cat 8 has been killed.
+Day 1, Hour 1: Cat 12 and Cat 13 gave birth to Cat 21!
+Day 1, Hour 13: Cat 15 has been killed.
+Day 2, Hour 16: Cat 10 has been killed.
+
+
+#### STATISTICS ####
+
+
+Initial population: 20
+Initial number of aggressive cats: 12
+Initial number of friendly cats: 4
+Initial number of meek cats: 4
+Initial average age of cats: 2.35
+Initial average health of cats: 100
+
+Births: 1
+Deaths: 4
+
+Current population: 17
+Current number of aggressive cats: 8
+Current number of friendly cats: 4
+Current number of meek cats: 5
+Current average age of cats: 2.35
+Current average health of cats: 99.53
+
+Total units of food eaten: 6.0
+Average units of food eaten by a single cat: 0.29
+Total units of water drunk: 25.5
+Average units of water drunk by a single cat: 1.21
+

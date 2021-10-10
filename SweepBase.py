@@ -2,21 +2,8 @@
 # Author : Nimesha Jayatunge
 # ID : 20464631
 #
-# Cats.py - Simulation of cats in an environment
+# SweepBase.py -  Base code for parameter sweep
 #
-# Revisions: 
-#
-# 17/Sep/2021 - Can read terrain and landmark data from scv files, and draw them onto pygame display.
-# 18/Sep/2021 - Landmarks can now have a quantity (x units of food/water).
-# 18/Sep/2021 - Created Cat class, movement rules and Moore/von Neumann neighbour detection.
-# 19/Sep/2021 - Cats have hunger and thirst, and can eat food and drink water. Cats can also detect whether other cats are nearby.
-# 20/Sep/2021 - Implemented engagement rules for cats; restructured sections of code and improved movement system.
-# 23/Sep/2021 - Added time of day and sleeping mechanic for cats.
-# 25/Sep/2021 - Cats leave a scent when passing through a cell.
-# 26/Sep/2021 - Added reproduction mechanic.
-# 27/Sep/2021 - Cats search for food and water based on scent.
-# 29/Sep/2021 - Added event log and simulation statistics. 
-# 30/Sep/2021 - Log, statistics and grid state can be saved to a new folder
 
 import pygame
 import pygame.ftfont
@@ -48,7 +35,7 @@ display_width = (num_cols+2)*cell_size				# Width of display in pixels
 display_height = (num_rows+2)*cell_size	+30			# Height of display in pixels
 
 # Simulation parameters
-framerate = 2 										# Number of timesteps run per second
+framerate = 1000 									# Number of timesteps run per second
 mating_cooldown_time = 24
 jump_height = 4
 sleep_hours = 8
@@ -326,7 +313,6 @@ def reproduce(birth_index,cat1,cat2,cell):
 	hearts.append(heart_pos)														# Creating a heart image to be drawn to the screen
 	event = "Day "+str(day)+", Hour "+str(hour_of_day)+": Cat "+str(cat1.index)+" and Cat "+str(cat2.index)+" gave birth to Cat "+str(baby.index)+"!\n"
 	event_log.append(event)
-	print(event)															
 	return baby
 
 # Function that maps height values (0 to 10) to RGB (dark brown to light brown)
@@ -411,7 +397,6 @@ def kill_cats(alive_cats,dead_cats):
 			else:
 				event = "Day "+str(day)+", Hour "+str(hour_of_day)+": Cat "+str(cat.index)+" has died of hunger.\n"
 			event_log.append(event)
-			print(event)
 	alive_cats = [cat for cat in alive_cats if cat.alive]
 	return alive_cats, dead_cats
 
@@ -539,7 +524,7 @@ Total units of food eaten: """+str(total_food_eaten)+"""
 Average units of food eaten by a single cat: """+str(avg_food_eaten)+"""
 Total units of water drunk: """+str(total_water_drunk)+"""
 Average units of water drunk by a single cat: """+str(avg_water_drunk)+"\n\n"
-	print(stats)
+	
 	return stats
 
 # Function that displays each cat's status 
@@ -620,7 +605,6 @@ def main_loop(alive_cats,terrain_array,food_array,water_array,cat_scent_array,ne
 	# Movement rules	
 	for cat in alive_cats:
 		cat.sleep()
-		
 		if (not cat.engaged) and (not cat.sleeping):
 			valid_moves = get_valid_moves(cat,terrain_array,food_array,water_array,cat_scent_array,neighbourhood,alive_cats)
 			choices = [v for v in valid_moves]			# List of move choices the cat will randomly choose from 						
@@ -677,26 +661,16 @@ if __name__ == "__main__":
 	except:
 		print("\nError: Please enter valid terrain csv and landmark csv as command line arguments.")
 	else:
-		try:
-			framerate = int(sys.argv[3])					# User can provide a different framerate as a cmd line argument (optional)
-		except:
-			pass
-		try:												
-			mating_cooldown_time = int(sys.argv[4])			# User can provide a different mating cooldown time as a cmd line argument (optional)
-		except:
-			pass
-		try:							
-			sleep_hours = int(sys.argv[5])					# User can provide a different sleep length as a cmd line argument (optional)
-		except:
-			pass
+		neighbourhood = sys.argv[3].upper() 			# Moore or Von Neumann
+		max_hours = int(sys.argv[4]) 					# Number of iterations the sim should run for
+		init_pop = int(sys.argv[5]) 					# Initial population of cat
+		mating_cooldown_time = int(sys.argv[6])			# User can provide a different mating cooldown time as a cmd line argument (optional)					
+		sleep_hours = int(sys.argv[7])					# User can provide a different sleep length as a cmd line argument (optional)
+
 		food_scent_array = np.zeros((num_rows+2,num_cols+2))
 		water_scent_array = np.zeros((num_rows+2,num_cols+2))
 		cat_scent_array = np.empty((num_rows+2,num_cols+2),dtype=object)		
 
-		neighbourhood = ask_choice("\nEnter the desired neighbourhood (M or V):\n","M","V","\nError: Not a valid neighbourhood.") 											# Moore or Von Neumann
-		max_hours = ask_number("\nHow many hours should be simulated? (enter 0 for indefinite):\n","\nError: Not a valid simulation length. Please provide an integer.") 	# Number of iterations the sim should run for
-		init_pop = ask_number("\nEnter the initial number of cats:\n","\nError: Not a valid simulation length. Please provide an integer.") 								# Initial population of cats	
-		
 		alive_cats = create_cats(init_pop)					# Creating initial list of cat objects
 		init_cats = alive_cats.copy()						# Storing initial list of cat objects				
 		dead_cats = []										# List of cats that have died
@@ -710,9 +684,6 @@ if __name__ == "__main__":
 
 		# Initializing pygame
 		pygame.init()
-		gameDisplay = pygame.display.set_mode((display_width,display_height))
-		fontface = pygame.ftfont.SysFont('Courier New',15,bold=True)
-		pygame.display.set_caption("Cats")
 		clock = pygame.time.Clock()
 
 		crashed = False		
@@ -722,8 +693,6 @@ if __name__ == "__main__":
 		show_water_scent = False
 		heart_image = pygame.image.load("heart.png")
 
-		print("\n\n\t\t\tSIMULATION START\n")
-		print("\n\n#### LOG ####\n\n")
 		while not crashed:
 			hour,day,hour_of_day = increment_time(hour,day,hour_of_day)
 			
@@ -749,72 +718,60 @@ if __name__ == "__main__":
 			food_scent_array = np.where(food_array>0,food_array,diffuse(food_scent_array,neighbourhood))
 			water_scent_array = np.where(water_array>0,water_array,diffuse(water_scent_array,neighbourhood))
 			alive_cats, dead_cats = kill_cats(alive_cats,dead_cats)
-			clock.tick(framerate)											# Makes the simulation run at the desired framerate																						
-			draw_screen(terrain_array,food_array, water_array, alive_cats, dead_cats, show_scents, heart_image, hearts)	    
-			display_time(hour,day,hour_of_day,fontface,gameDisplay)
-			pygame.display.update()											# Draws the new frame
+			clock.tick(framerate)																						
 
-		print("\n\n\n\t\t\tSIMULATION END\n\n\n")
 		# show_cats(alive_cats,dead_cats)
-		stats = show_stats(init_cats,alive_cats,dead_cats,births)			# Prints statistics after the simulation is over
+		stats = show_stats(init_cats,alive_cats,dead_cats,births)					# Prints statistics after the simulation is over
+		
+		now = str(datetime.datetime.now())[:19]
+		now = '_'.join(now.split(' '))
+		now = '.'.join(now.split(':'))
+		new_dir = "Simulation_M"+str(mating_cooldown_time)+"_S"+str(sleep_hours)	# Creating a unique name for the new directory
+		
+		if new_dir not in os.listdir():
+			os.mkdir(new_dir)				# Creating new directory for data to be saved in	
+		os.chdir(new_dir)
+
+		gameDisplay = pygame.display.set_mode((display_width,display_height))
+		pygame.display.set_caption("Cats")
+		fontface = pygame.ftfont.SysFont('Courier New',15,bold=True)
 
 		show_scents = False
 		show_food_scent = False
 		show_water_scent = False
 		draw_screen(terrain_array,food_array, water_array, alive_cats, dead_cats, show_scents, heart_image, hearts)
 		display_time(hour,day,hour_of_day,fontface,gameDisplay)
-
-		now = str(datetime.datetime.now())[:19]
-		now = '_'.join(now.split(' '))
-		now = '.'.join(now.split(':'))
-		new_dir = "Simulation_"+now 			# Creating a unique name for the new directory
 		
-		save_grid = ask_choice("\nSave current grid state? (Y/N): ","Y","N","\nError: Please enter Y or N.")	# User can choose to save grid state as an image and arrays
-		if save_grid == "Y":
-			if new_dir not in os.listdir():
-				os.mkdir(new_dir)				# Creating new directory for data to be saved in	
-			os.chdir(new_dir)
+		pygame.image.save(gameDisplay,"simulation.png")							# Saving image of final frame of simulation
+		pygame.quit()													  		# Exit simulation
 
-			pygame.image.save(gameDisplay,"simulation.png")							# Saving image of final frame of simulation
-			terrain_array_save = terrain_array[1:num_rows+1,1:num_cols+1]			# Terrain array used in the simulation
-			landmark_array_save = np.empty((num_rows,num_cols),dtype=object)		# Layout of food and water in the final frame of simulation
-			cats_array_save = np.empty((num_rows,num_cols),dtype=object)			# Positions of cats in final frame of simulation
-			for r in range(num_rows):
-				for c in range(num_cols):
-					cats_array_save[r,c] = ""
-					if water_array[r+1,c+1] > 0:
-						landmark_array_save[r,c] = "W "+str(water_array[r+1,c+1])
-					elif food_array[r+1,c+1] > 0:
-						landmark_array_save[r,c] = "F "+str(food_array[r+1,c+1])
-					else:
-						landmark_array_save[r,c] = ""
-
-			for cat in alive_cats+dead_cats:
-				r,c = cat.pos[0],cat.pos[1]
-				if cat.alive:
-					cats_array_save[r-1,c-1]="A"			# Alive cats represented by "A"
+		landmark_array_save = np.empty((num_rows,num_cols),dtype=object)		# Layout of food and water in the final frame of simulation
+		cats_array_save = np.empty((num_rows,num_cols),dtype=object)			# Positions of cats in final frame of simulation
+		for r in range(num_rows):
+			for c in range(num_cols):
+				cats_array_save[r,c] = ""
+				if water_array[r+1,c+1] > 0:
+					landmark_array_save[r,c] = "W "+str(water_array[r+1,c+1])
+				elif food_array[r+1,c+1] > 0:
+					landmark_array_save[r,c] = "F "+str(food_array[r+1,c+1])
 				else:
-					cats_array_save[r-1,c-1]="D"			# Dead cats represented by "D"
+					landmark_array_save[r,c] = ""
 
-			# Converting the arrays to csv files and saving them
-			np.savetxt("terrain_used.csv", terrain_array_save, delimiter=",", fmt='%s')
-			np.savetxt("final_landmarks.csv", landmark_array_save, delimiter=",", fmt='%s')
-			np.savetxt("final_cats.csv", cats_array_save, delimiter=",", fmt='%s')
-			
-			os.chdir(main_dir)
+		for cat in alive_cats+dead_cats:
+			r,c = cat.pos[0],cat.pos[1]
+			if cat.alive:
+				cats_array_save[r-1,c-1]="A"			# Alive cats represented by "A"
+			else:
+				cats_array_save[r-1,c-1]="D"			# Dead cats represented by "D"
 
-		pygame.quit()		  		# Exit simulation
+		# Converting the arrays to csv files and saving them
+		np.savetxt("final_landmarks.csv", landmark_array_save, delimiter=",", fmt='%s')
+		np.savetxt("final_cats.csv", cats_array_save, delimiter=",", fmt='%s')
+		
+		with open("log.txt","w") as out:
+			for ev in event_log:
+				out.write(ev)
+			out.write(stats)
 
-		save_log = ask_choice("\nSave event log? (Y/N): ","Y","N","\nError: Please enter Y or N.")	# User can choose to save event log to an output file
-		if save_log == "Y":	
-			if new_dir not in os.listdir():
-				os.mkdir(new_dir)
-			os.chdir(new_dir)
-
-			with open("log.txt","w") as out:
-				for ev in event_log:
-					out.write(ev)
-				out.write(stats)
-
-			os.chdir(main_dir)
+		os.chdir(main_dir)
 	quit()
