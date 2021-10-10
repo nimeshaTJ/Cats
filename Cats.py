@@ -265,7 +265,7 @@ def get_valid_moves(cat,terrain_array,food_array,water_array,cat_scent_array,nei
 			pass
 	avoided_scents = [v for v in valid_moves]
 	for cell in valid_moves:
-		if cat_scent_array[cell[0],cell[1]][1]==cat.sex and cat_scent_array[cell[0],cell[1]][0]!=cat:		# Cats avoid scents of the same sex 
+		if cat_scent_array[cell[0],cell[1]][1]==cat.sex and cat_scent_array[cell[0],cell[1]][0]!=cat:			# Cats avoid scents of the same sex 
 			probability = cat_scent_array[cell[0],cell[1]][2]
 			if random.random()<probability:
 				avoided_scents.remove(cell)
@@ -283,7 +283,7 @@ def check_surroundings(cat,pos,alive_cats):
 	
 	valid_surrounding_cells = [cell for cell in surrounding_cells]	
 	for cell in surrounding_cells:
-		if abs(terrain_array[cell[0],cell[1]] - terrain_array[r,c]) > jump_height:											# Cats don't interact with cells that are across a steep slope
+		if abs(terrain_array[cell[0],cell[1]] - terrain_array[r,c]) > jump_height:			# Cats don't interact with cells that are across a steep slope
 			valid_surrounding_cells.remove(cell)	
 
 	neighbours = [neighbour for neighbour in alive_cats if (neighbour!=cat) and (neighbour.pos in valid_surrounding_cells)]
@@ -472,7 +472,7 @@ def draw_screen(terrain_array,food_array, water_array, alive_cats, dead_cats, sh
 	for heart in hearts:
 		gameDisplay.blit(heart_image,(heart[0],heart[1]))		# Draws a heart on screen if cats reproduce
 
-# Function that displays the current time (in days and hours) on the screen	
+# Function that displays the current timestep (in days and hours) on the screen	
 def display_time(hour,day,hour_of_day,fontface,gameDisplay):
 	line1 = "Day "+str(day)+", Hour "+str(hour_of_day)
 	line1display = fontface.render(line1,True,white)
@@ -576,7 +576,7 @@ def ask_number(prompt,error_message):
 def main_loop(alive_cats,terrain_array,food_array,water_array,cat_scent_array,neighbourhood,hour_of_day):
 	births = []
 
-	# Cat to cat and food/water interaction rules
+	# Fighting/fleeing and food/water interaction rules
 	for cat in alive_cats:
 		cat.height = terrain_array[cat.pos[0],cat.pos[1]]
 		cat.engaged = False
@@ -620,7 +620,7 @@ def main_loop(alive_cats,terrain_array,food_array,water_array,cat_scent_array,ne
 	# Movement rules	
 	for cat in alive_cats:
 		cat.sleep()
-		# print(cat.hunger,cat.thirst,cat.health)
+		
 		if (not cat.engaged) and (not cat.sleeping):
 			valid_moves = get_valid_moves(cat,terrain_array,food_array,water_array,cat_scent_array,neighbourhood,alive_cats)
 			choices = [v for v in valid_moves]			# List of move choices the cat will randomly choose from 						
@@ -636,7 +636,7 @@ def main_loop(alive_cats,terrain_array,food_array,water_array,cat_scent_array,ne
 							choices = [move]
 						elif scent[2]==neighbour_scent_value:
 							choices.append(move)
-				pass
+				
 			else:
 				# Making the cat follow food and water scents:
 				food_scents = []							# List of cells with food scents in the neighbourhood
@@ -674,7 +674,7 @@ if __name__ == "__main__":
 	try:
 		terrain_array = read_terrain(sys.argv[1])				# Command line argument for terrain file
 		food_array, water_array = read_landmarks(sys.argv[2])	# Command line argument for landmark file
-	except IndexError:
+	except:
 		print("\nError: Please enter valid terrain csv and landmark csv as command line arguments.")
 	else:
 		try:												
@@ -788,9 +788,9 @@ if __name__ == "__main__":
 			for cat in alive_cats+dead_cats:
 				r,c = cat.pos[0],cat.pos[1]
 				if cat.alive:
-					cats_array_save[r-1,c-1]="A"
+					cats_array_save[r-1,c-1]="A"			# Alive cats represented by "A"
 				else:
-					cats_array_save[r-1,c-1]="D"
+					cats_array_save[r-1,c-1]="D"			# Dead cats represented by "D"
 
 			# Converting the arrays to csv files and saving them
 			np.savetxt("terrain_used.csv", terrain_array_save, delimiter=",", fmt='%s')
